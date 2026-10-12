@@ -5,7 +5,7 @@ import { Profile } from './pages/Profile';
 import { UserPage } from './pages/UserPage';
 import { Login } from './pages/Login';
 import { Register } from './pages/Register';
-import { Messages } from './pages/Messages'; // ВЕРНУЛИ ИМПОРТ СТРАНИЦЫ ЧАТОВ
+import Messages from './pages/Messages'; // ИСПРАВЛЕНО: Чистый дефолтный импорт страницы чатов
 import { NotificationDropdown } from './components/NotificationDropdown';
 import { API_URL } from './api';
 
@@ -49,15 +49,16 @@ export default function App() {
       {token && user && (
         <header className="sticky top-0 z-40 w-full border-b border-slate-200 bg-white/80 backdrop-blur-md">
           <div className="mx-auto flex h-14 max-w-4xl items-center justify-between px-4">
+            {/* Логотип */}
             <Link to="/" className="flex items-center gap-1.5 focus:outline-none select-none">
               <span className="text-xl">⚡</span>
               <span className="text-sm font-black uppercase tracking-wider text-slate-900">Social Net</span>
             </Link>
 
+            {/* Меню навигации */}
             <div className="flex items-center gap-4">
               <Link to="/" className="text-sm font-bold text-slate-600 hover:text-blue-600 transition-colors">Лента</Link>
               
-              {/* ВЕРНУЛИ ССЫЛКУ НА МЕССЕНДЖЕР В ХЕДЕР */}
               <Link to="/messages" className="text-sm font-bold text-slate-600 hover:text-blue-600 transition-colors flex items-center gap-1">
                 <span>💬</span> Сообщения
               </Link>
@@ -93,7 +94,7 @@ export default function App() {
           <Route path="/profile" element={token && user ? <Profile token={token} user={user} onUserUpdate={handleUserUpdate} /> : <Navigate to="/login" />} />
           <Route path="/user/:id" element={token && user ? <UserPage token={token} currentUserId={user.id} /> : <Navigate to="/login" />} />
           
-          {/* ВЕРНУЛИ РОУТ СТРАНИЦЫ СООБЩЕНИЙ */}
+          {/* Стабильный роут страницы сообщений */}
           <Route path="/messages" element={token && user ? <Messages token={token} currentUserId={user.id} /> : <Navigate to="/login" />} />
           
           <Route path="/login" element={!token ? <Login onLoginSuccess={handleLoginSuccess} /> : <Navigate to="/" />} />

@@ -21,7 +21,7 @@ interface MessagesProps {
   currentUserId: number;
 }
 
-export const Messages: React.FC<MessagesProps> = ({ token, currentUserId }) => {
+const Messages: React.FC<MessagesProps> = ({ token, currentUserId }) => {
   const [searchParams, setSearchParams] = useSearchParams();
   const targetChatUserId = searchParams.get('chat');
 
@@ -193,3 +193,5 @@ export const Messages: React.FC<MessagesProps> = ({ token, currentUserId }) => {
     </div>
   );
 };
+
+export default Messages;
