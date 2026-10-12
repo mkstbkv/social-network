@@ -1,18 +1,26 @@
-import { Router } from 'express';
-import { sendMessage, getChatHistory, getActiveChats, getTotalUnreadCount, deleteMessage, getUnreadCounters, markAsRead} from '../controllers/messageController.js';
-import { verifyToken } from '../middleware/auth.js';
+import express from 'express';
+import { 
+  getMessages, 
+  sendMessage, 
+  getActiveChats, 
+  getUnreadCounters, 
+  markAsRead, 
+  deleteMessage,
+  getLastMessagesPreview
+} from '../controllers/messageController.js';
+import authMiddleware from '../middleware/authMiddleware.js'; // Убедись, что путь к твоему middleware верный
 
-const router = Router();
+const router = express.Router();
 
-router.post('/', verifyToken, sendMessage); 
-router.get('/unread-total', verifyToken, getTotalUnreadCount); 
-router.get('/active', verifyToken, getActiveChats); 
-router.get('/:userId', verifyToken, getChatHistory); 
-router.delete('/:id', verifyToken, deleteMessage); // Роут удаления сообщения
-// Подставь свои названия middleware авторизации, если они называются иначе
-router.get('/unread/counters', verifyToken, getUnreadCounters);
-router.put('/read/:senderId', verifyToken, markAsRead);
-router.get('/active/list', verifyToken, getActiveChats);
+// 1. СТРОГО ВЕРХНИЙ ПРИОРИТЕТ: Статические точные пути API
+router.get('/active/list', authMiddleware, getActiveChats);
+router.get('/unread/counters', authMiddleware, getUnreadCounters);
+router.get('/preview/last', authMiddleware, getLastMessagesPreview);
+router.put('/read/:senderId', authMiddleware, markAsRead);
 
+// 2. НИЖНИЙ ПРИОРИТЕТ: Динамические роуты с переменными (параметрами) по ID
+router.get('/:userId', authMiddleware, getMessages);
+router.post('/', authMiddleware, sendMessage);
+router.delete('/:messageId', authMiddleware, deleteMessage);
 
 export default router;
