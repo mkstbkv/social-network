@@ -1,5 +1,5 @@
 import pool from './config/db.js';
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 
 const seedData = async () => {
   try {
