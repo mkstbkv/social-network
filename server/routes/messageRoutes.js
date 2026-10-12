@@ -12,6 +12,7 @@ router.delete('/:id', verifyToken, deleteMessage); // Роут удаления 
 // Подставь свои названия middleware авторизации, если они называются иначе
 router.get('/unread/counters', verifyToken, getUnreadCounters);
 router.put('/read/:senderId', verifyToken, markAsRead);
+router.get('/active/list', verifyToken, getActiveChats);
 
 
 export default router;

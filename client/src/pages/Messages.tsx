@@ -60,9 +60,13 @@ export default function Messages({ token, currentUserId, onCounterRefresh }: Mes
       .catch((err) => console.error(err));
   };
 
-  // МГНОВЕННАЯ ФУНКЦИЯ: Запрашивает базу данных без Debounce
-  const fetchAllUsersImmediate = (query: string) => {
-    fetch(API_URL + '/api/users/search?query=' + encodeURIComponent(query), {
+  // УМНАЯ ФУНКЦИЯ: Загружает либо активные чаты, либо ищет по всей базе
+  const loadUsersList = (query: string) => {
+    const endpoint = query.trim() === '' 
+      ? API_URL + '/api/messages/active/list' // Если пусто — только существующие чаты
+      : API_URL + '/api/users/search?query=' + encodeURIComponent(query); // Если пишем — глобальный поиск
+
+    fetch(endpoint, {
       headers: { 'Authorization': 'Bearer ' + token }
     })
       .then((res) => res.json())
@@ -75,9 +79,8 @@ export default function Messages({ token, currentUserId, onCounterRefresh }: Mes
       .catch((err) => console.error('Ошибка загрузки пользователей:', err));
   };
 
-  // ИСПРАВЛЕНО: Запрос летит сразу при изменении текста или первом открытии страницы
   useEffect(() => {
-    fetchAllUsersImmediate(searchQuery);
+    loadUsersList(searchQuery);
   }, [searchQuery, token, currentUserId]);
 
   useEffect(() => {
@@ -98,6 +101,7 @@ export default function Messages({ token, currentUserId, onCounterRefresh }: Mes
     socket.on('refresh_unread_counters', () => {
       fetchUnreadCounters();
       onCounterRefresh();
+      if (searchQuery.trim() === '') loadUsersList(''); // Обновляем список активных чатов, если пришло новое сообщение
     });
 
     return () => {
@@ -106,7 +110,7 @@ export default function Messages({ token, currentUserId, onCounterRefresh }: Mes
       socket.off('typing_clear');
       socket.off('refresh_unread_counters');
     };
-  }, [currentUserId]);
+  }, [currentUserId, searchQuery]);
 
   useEffect(() => {
     if (targetChatUserId) {
@@ -196,6 +200,7 @@ export default function Messages({ token, currentUserId, onCounterRefresh }: Mes
       .then(() => {
         setNewMessage('');
         fetchMessages();
+        loadUsersList(searchQuery); // Синхронизируем левую панель, чтобы новый чат закрепился в списке активных
         socket.emit('new_message_sent', { receiverId: activeUser.id });
       })
       .catch((err) => console.error(err));
@@ -206,6 +211,16 @@ export default function Messages({ token, currentUserId, onCounterRefresh }: Mes
     const newParams = new URLSearchParams(searchParams);
     newParams.set('chat', u.id.toString());
     setSearchParams(newParams);
+  };
+
+  // ИСПРАВЛЕНО: Функция закрытия активного окна чата
+  const handleCloseChat = () => {
+    setActiveUser(null);
+    setMessages([]);
+    const newParams = new URLSearchParams(searchParams);
+    newParams.delete('chat');
+    setSearchParams(newParams);
+    loadUsersList(searchQuery); // Мгновенно обновляем список диалогов
   };
   const firstUnreadIncomingIndex = messages.findIndex(
     m => !m.is_read && m.sender_id.toString() !== currentUserId.toString()
@@ -218,15 +233,17 @@ export default function Messages({ token, currentUserId, onCounterRefresh }: Mes
         <div className="p-4 border-b border-slate-200 bg-white flex flex-col gap-2.5">
           <div>
             <h3 className="text-base font-black text-slate-900 tracking-tight">Мессенджер</h3>
-            <p className="text-[11px] text-slate-400 mt-0.5">Общайтесь с любым пользователем сети</p>
+            {/* Динамическая подсказка */}
+            <p className="text-[11px] text-slate-400 mt-0.5">
+              {searchQuery.trim() === '' ? 'Ваши активные переписки' : 'Результаты глобального поиска'}
+            </p>
           </div>
-          {/* МГНОВЕННЫЙ ПОИСК: Запрос улетает сразу по onChange без задержек */}
           <div className="relative">
             <input 
               type="text" 
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="🔍 Найти пользователя по нику..." 
+              placeholder="🔍 Найти нового пользователя..." 
               className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs focus:border-blue-500 focus:bg-white focus:outline-none transition-colors"
             />
           </div>
@@ -234,7 +251,9 @@ export default function Messages({ token, currentUserId, onCounterRefresh }: Mes
         
         <div className="flex-1 overflow-y-auto p-2 flex flex-col gap-1">
           {users.length === 0 ? (
-            <p className="text-center text-xs text-slate-400 italic py-6">Пользователи не найдены</p>
+            <p className="text-center text-xs text-slate-400 italic py-6">
+              {searchQuery.trim() === '' ? 'У вас пока нет активных чатов.' : 'Пользователи не найдены'}
+            </p>
           ) : (
             users.map((u) => {
               const isOnline = onlineUserIds.includes(u.id.toString());
@@ -259,7 +278,6 @@ export default function Messages({ token, currentUserId, onCounterRefresh }: Mes
                       {isTypingNow && <span className={`text-[10px] font-bold animate-pulse ${activeUser?.id === u.id ? 'text-blue-200' : 'text-amber-500'}`}>Печатает...</span>}
                     </div>
                   </div>
-                  {/* Зелёный круглый счётчик непрочитанных сообщений */}
                   {count > 0 && activeUser?.id !== u.id && (
                     <span className="h-5 min-w-5 px-1.5 flex items-center justify-center rounded-full bg-emerald-500 text-[10px] font-black text-white shadow-sm shrink-0">
                       {count}
@@ -276,6 +294,7 @@ export default function Messages({ token, currentUserId, onCounterRefresh }: Mes
       <section className="flex-1 flex flex-col bg-white">
         {activeUser ? (
           <>
+            {/* Шапка чата с кнопкой закрытия */}
             <div className="p-4 border-b border-slate-200 flex items-center justify-between bg-slate-50/20">
               <div className="flex items-center gap-3">
                 <div className="relative h-9 w-9 rounded-full overflow-hidden shrink-0 border border-slate-200 bg-slate-100 flex items-center justify-center font-bold text-slate-500 text-xs">
@@ -288,6 +307,15 @@ export default function Messages({ token, currentUserId, onCounterRefresh }: Mes
                   </span>
                 </div>
               </div>
+
+              {/* ИСПРАВЛЕНО: Кнопка закрытия открытого диалога справа сверху */}
+              <button 
+                onClick={handleCloseChat}
+                className="rounded-xl p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-all font-bold text-sm focus:outline-none"
+                title="Закрыть диалог"
+              >
+                ✕ Закрыть
+              </button>
             </div>
 
             <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-3 bg-slate-50/10">
@@ -297,7 +325,6 @@ export default function Messages({ token, currentUserId, onCounterRefresh }: Mes
 
                 return (
                   <React.Fragment key={msg.id}>
-                    {/* Линия-разделитель «Непрочитанные сообщения» */}
                     {isFirstUnreadLine && (
                       <div ref={firstUnreadRef} className="w-full flex items-center my-3 select-none">
                         <div className="flex-1 h-[1px] bg-emerald-200"></div>
@@ -338,7 +365,7 @@ export default function Messages({ token, currentUserId, onCounterRefresh }: Mes
           <div className="flex-1 flex flex-col items-center justify-center p-8 text-slate-400 select-none">
             <span className="text-4xl mb-2">💬</span>
             <p className="text-sm font-bold text-slate-500">Чат не выбран</p>
-            <p className="text-xs text-slate-400 mt-1 text-center max-w-xs">Выберите любого пользователя в левой панели или нажмите кнопку «Написать» в его профиле для начала прямого диалога</p>
+            <p className="text-xs text-slate-400 mt-1 text-center max-w-xs">Выберите любой активный диалог слева или воспользуйтесь поиском, чтобы найти нового собеседника</p>
           </div>
         )}
       </section>
