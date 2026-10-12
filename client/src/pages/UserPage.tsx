@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, Link, useSearchParams } from 'react-router';
 import { PostCard } from '../components/PostCard';
 import { FollowModal } from '../components/FollowModal';
-import { API_URL } from '../api';
+import { API_URL } from '../api'; // ИМПОРТИРУЕМ НАШ НАДЁЖНЫЙ URL
 
 interface Post {
   id: number;
@@ -39,7 +39,7 @@ export const UserPage: React.FC<UserPageProps> = ({ token, currentUserId }) => {
   const [loading, setLoading] = useState<boolean>(true);
 
   const [modalOpen, setModalOpen] = useState<boolean>(false);
-  const [modalTitle, setModalTitle] = useState<string>( '');
+  const [modalTitle, setModalTitle] = useState<string>('');
   const [modalUsers, setModalUsers] = useState<any[]>([]);
 
   const [searchParams, setSearchParams] = useSearchParams();
@@ -94,17 +94,22 @@ export const UserPage: React.FC<UserPageProps> = ({ token, currentUserId }) => {
     }
   }, [targetPostId, posts, loading]);
 
+  // ИСПРАВЛЕНО: Теперь модальное окно подписок запрашивает данные с облачного API_URL!
   const openFollowModal = (type: 'followers' | 'following') => {
     if (!id) return;
     setModalTitle(type === 'followers' ? 'Подписчики' : 'Подписки');
     fetch(API_URL + '/api/users/' + id + '/' + type, {
       headers: { 'Authorization': 'Bearer ' + token }
     })
-      .then((res) => res.json())
+      .then((res) => {
+        if (!res.ok) throw new Error('Ошибка сервера при загрузке подписок');
+        return res.json();
+      })
       .then((data) => {
         setModalUsers(Array.isArray(data) ? data : []);
         setModalOpen(true);
-      });
+      })
+      .catch((err) => console.error(err));
   };
 
   const handleFollowToggle = () => {
@@ -137,7 +142,6 @@ export const UserPage: React.FC<UserPageProps> = ({ token, currentUserId }) => {
 
           {currentUserId.toString() !== user.id.toString() && (
             <div className="flex gap-2">
-              {/* НАДЁЖНО: Кнопка "Написать" ведет в мессенджер к диалогу с этим юзером */}
               <Link to={'/messages?chat=' + user.id} className="rounded-xl bg-slate-100 px-5 py-2 text-sm font-bold text-slate-700 hover:bg-slate-200 transition-colors">
                 Написать
               </Link>
@@ -178,4 +182,3 @@ export const UserPage: React.FC<UserPageProps> = ({ token, currentUserId }) => {
     </div>
   );
 };
-
