@@ -47,7 +47,7 @@ export const Profile: React.FC<ProfileProps> = ({ token, user, onUserUpdate }) =
   const fetchUserPosts = () => {
     if (!currentUser?.id) return;
     setLoading(true);
-    fetch('http://localhost:5000/api/posts/user/' + currentUser.id, {
+    fetch('/api/posts/user/' + currentUser.id, {
       headers: { 'Authorization': 'Bearer ' + token }
     })
       .then((res) => res.json())
@@ -128,7 +128,7 @@ export const Profile: React.FC<ProfileProps> = ({ token, user, onUserUpdate }) =
 
   const handleUpdateBio = (e: React.FormEvent) => {
     e.preventDefault();
-    fetch('http://localhost:5000/api/users/profile', {
+    fetch('/api/users/profile', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
       body: JSON.stringify({ bio })
@@ -148,7 +148,7 @@ export const Profile: React.FC<ProfileProps> = ({ token, user, onUserUpdate }) =
 
   const handleDeletePost = (postId: number) => {
     if (!window.confirm('Вы уверены?')) return;
-    fetch('http://localhost:5000/api/posts/' + postId, {
+    fetch('/api/posts/' + postId, {
       method: 'DELETE',
       headers: { 'Authorization': 'Bearer ' + token }
     }).then(() => fetchUserPosts());

@@ -80,7 +80,7 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({ toke
   };
 
   const handleMarkAllAsRead = () => {
-    fetch('http://localhost:5000/api/notifications/read', {
+    fetch('/api/notifications/read', {
       method: 'PUT',
       headers: { 'Authorization': 'Bearer ' + token }
     }).then(() => fetchNotifications());
@@ -88,7 +88,7 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({ toke
 
   const handleClearAll = () => {
     if (!window.confirm('Очистить уведомления?')) return;
-    fetch('http://localhost:5000/api/notifications/clear', {
+    fetch('/api/notifications/clear', {
       method: 'DELETE',
       headers: { 'Authorization': `Bearer ` + token }
     })

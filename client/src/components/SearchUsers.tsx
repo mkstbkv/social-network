@@ -26,7 +26,7 @@ export const SearchUsers: React.FC<SearchUsersProps> = ({ token }) => {
     }
 
     const delayDebounceFn = setTimeout(() => {
-      fetch(`http://localhost:5000/api/users/search?query=${searchQuery}`, {
+      fetch(`/api/users/search?query=${searchQuery}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       })
         .then((res) => res.json())

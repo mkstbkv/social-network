@@ -52,7 +52,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post, token, currentUserId, 
   }, [post.comments_count, post.likes_count, post.is_liked]);
 
   const fetchComments = () => {
-    fetch('http://localhost:5000/api/comments/' + post.id, {
+    fetch('/api/comments/' + post.id, {
       headers: { 'Authorization': 'Bearer ' + token }
     })
       .then((res) => res.json())
@@ -204,7 +204,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post, token, currentUserId, 
     e.preventDefault();
     if (!commentContent.trim()) return;
 
-    fetch('http://localhost:5000/api/comments', {
+    fetch('/api/comments', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
       body: JSON.stringify({ post_id: post.id, content: commentContent, parent_id: replyToId }),
@@ -225,7 +225,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post, token, currentUserId, 
   const handleSaveEdit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!editedContent.trim()) return;
-    fetch('http://localhost:5000/api/posts/' + post.id, {
+    fetch('/api/posts/' + post.id, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
       body: JSON.stringify({ content: editedContent }),
@@ -237,7 +237,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post, token, currentUserId, 
 
   const handleDeleteComment = (commentId: number) => {
     if (!window.confirm('Удалить комментарий?')) return;
-    fetch('http://localhost:5000/api/comments/' + commentId, {
+    fetch('/api/comments/' + commentId, {
       method: 'DELETE',
       headers: { 'Authorization': 'Bearer ' + token }
     }).then(() => {
@@ -248,7 +248,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post, token, currentUserId, 
 
   const handleCommentLike = (commentId: number) => {
     setComments((prev) => prev.map((c) => c.id === commentId ? { ...c, is_liked: !c.is_liked, likes_count: c.is_liked ? c.likes_count - 1 : c.likes_count + 1 } : c));
-    fetch('http://localhost:5000/api/comments/like', {
+    fetch('/api/comments/like', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
       body: JSON.stringify({ comment_id: commentId }),
@@ -261,7 +261,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post, token, currentUserId, 
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Link to={post.user_id.toString() === currentUserId.toString() ? "/profile" : '/user/' + post.user_id} className="h-10 w-10 shrink-0 overflow-hidden rounded-full border border-slate-100 bg-slate-50 flex items-center justify-center font-bold text-slate-500">
-            {post.avatar_url ? <img src={'http://localhost:5000' + post.avatar_url} alt="Аватар" className="h-full w-full object-cover" /> : post.username ? post.username.toUpperCase().substring(0, 2) : 'US'}
+            {post.avatar_url ? <img src={'' + post.avatar_url} alt="Аватар" className="h-full w-full object-cover" /> : post.username ? post.username.toUpperCase().substring(0, 2) : 'US'}
           </Link>
           <div className="flex flex-col">
             <Link to={post.user_id.toString() === currentUserId.toString() ? "/profile" : '/user/' + post.user_id} className="text-base font-bold text-slate-900 hover:text-blue-600 hover:underline">
@@ -292,7 +292,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post, token, currentUserId, 
 
       {post.image_url && (
         <div className="mt-3 overflow-hidden rounded-xl border border-slate-100 bg-slate-50">
-          <img src={'http://localhost:5000' + post.image_url} alt="Контент" className="max-h-96 w-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+          <img src={'' + post.image_url} alt="Контент" className="max-h-96 w-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
         </div>
       )}
 
@@ -325,7 +325,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post, token, currentUserId, 
                   {searchSuggestions.map((u) => (
                     <button key={u.id} type="button" onClick={() => handleSuggestionClick(u.username)} className="flex items-center gap-2 w-full rounded-lg p-1.5 text-left text-xs font-bold text-slate-800 hover:bg-slate-50">
                       <div className="h-6 w-6 rounded-full bg-blue-50 flex items-center justify-center text-[10px] text-blue-600 overflow-hidden shrink-0">
-                        {u.avatar_url ? <img src={'http://localhost:5000' + u.avatar_url} className="h-full w-full object-cover" /> : u.username.substring(0,2).toUpperCase()}
+                        {u.avatar_url ? <img src={'' + u.avatar_url} className="h-full w-full object-cover" /> : u.username.substring(0,2).toUpperCase()}
                       </div>
                       <span className="truncate">@{u.username}</span>
                     </button>

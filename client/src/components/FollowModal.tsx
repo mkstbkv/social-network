@@ -54,7 +54,7 @@ export const FollowModal: React.FC<FollowModalProps> = ({ isOpen, onClose, title
               >
                 <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-slate-100 bg-blue-50 overflow-hidden font-bold text-xs text-blue-600">
                   {u.avatar_url ? (
-                    <img src={`http://localhost:5000${u.avatar_url}`} alt="Аватар" className="h-full w-full object-cover" />
+                    <img src={`${u.avatar_url}`} alt="Аватар" className="h-full w-full object-cover" />
                   ) : (
                     u.username.substring(0, 2).toUpperCase()
                   )}

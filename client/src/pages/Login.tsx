@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router';
+import { useNavigate, Link } from 'react-router';
+import { API_URL } from '../api'; // ИМПОРТИРУЕМ НАШ НАДЁЖНЫЙ URL
 
 interface LoginProps {
   onLoginSuccess: (token: string, user: any) => void;
@@ -8,53 +9,59 @@ interface LoginProps {
 export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState<string | null>(null);
+  const navigate = useNavigate();
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    setError(null);
-    try {
-      const response = await fetch('http://localhost:5000/api/users/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Неверный email или пароль');
-      localStorage.setItem('token', data.token);
-      localStorage.setItem('user', JSON.stringify(data.user));
-      onLoginSuccess(data.token, data.user);
-    } catch (err: any) {
-      setError(err.message);
+    if (!email.trim() || !password.trim()) {
+      alert('Заполните все поля');
+      return;
     }
+
+    // ИСПРАВЛЕНО: Динамический вызов облачного бэкенда через плюс!
+    fetch(API_URL + '/api/users/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error('Неверный email или пароль');
+        return res.json();
+      })
+      .then((data) => {
+        onLoginSuccess(data.token, data.user);
+        navigate('/');
+      })
+      .catch((err) => alert(err.message));
   };
-
   return (
-    <div className="mx-auto mt-16 max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-xl shadow-slate-100">
-      <h2 className="text-center text-2xl font-bold tracking-tight text-slate-900">Вход в сеть</h2>
-      
-      {error && <div className="mt-4 rounded-lg bg-rose-50 p-3 text-center text-sm font-medium text-rose-600">⚠️ {error}</div>}
+    <div className="flex min-h-[80vh] items-center justify-center px-4">
+      <div className="w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-6 shadow-xl">
+        <div className="flex flex-col items-center mb-6">
+          <span className="text-3xl mb-1">🔐</span>
+          <h2 className="text-xl font-black text-slate-900 tracking-tight">Вход в систему</h2>
+          <p className="text-xs text-slate-400 mt-1">Добро пожаловать обратно</p>
+        </div>
+        
+        <form onSubmit={handleLogin} className="flex flex-col gap-4">
+          <div>
+            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Email адрес</label>
+            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="ivan@mail.com" className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none" />
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Ваш Пароль</label>
+            <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••" className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none" />
+          </div>
+          <button type="submit" className="mt-2 rounded-xl bg-blue-600 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 transition-colors">
+            Войти в аккаунт
+          </button>
+        </form>
 
-      <form onSubmit={handleSubmit} className="mt-6 flex flex-col gap-4">
-        <input 
-          type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} required 
-          className="rounded-xl border border-slate-200 px-4 py-3 text-sm transition-all placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100" 
-        />
-        <input 
-          type="password" placeholder="Пароль" value={password} onChange={(e) => setPassword(e.target.value)} required 
-          className="rounded-xl border border-slate-200 px-4 py-3 text-sm transition-all placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100" 
-        />
-        <button type="submit" className="mt-2 rounded-xl bg-blue-600 py-3 text-sm font-semibold text-white shadow-lg shadow-blue-100 transition-all hover:bg-blue-700 active:scale-[0.98]">
-          Войти
-        </button>
-      </form>
-
-      <p className="mt-6 text-center text-sm text-slate-500">
-        Нет аккаунта?{' '}
-        <Link to="/register" className="font-semibold text-blue-600 hover:underline">
-          Создать аккаунт
-        </Link>
-      </p>
+        <p className="mt-4 text-center text-xs text-slate-500">
+          Еще нет аккаунта?{' '}
+          <Link to="/register" className="font-bold text-blue-600 hover:underline">Создать профиль</Link>
+        </p>
+      </div>
     </div>
   );
 };

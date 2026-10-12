@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, Link, useSearchParams } from 'react-router';
 import { PostCard } from '../components/PostCard';
 import { FollowModal } from '../components/FollowModal';
+import { API_URL } from '../api';
 
 interface Post {
   id: number;
@@ -38,24 +39,23 @@ export const UserPage: React.FC<UserPageProps> = ({ token, currentUserId }) => {
   const [loading, setLoading] = useState<boolean>(true);
 
   const [modalOpen, setModalOpen] = useState<boolean>(false);
-  const [modalTitle, setModalTitle] = useState<string>('');
+  const [modalTitle, setModalTitle] = useState<string>( '');
   const [modalUsers, setModalUsers] = useState<any[]>([]);
 
-  // Читаем параметры для автофокуса в чужом профиле
   const [searchParams, setSearchParams] = useSearchParams();
   const targetPostId = searchParams.get('post');
   const targetCommentId = searchParams.get('comment');
 
   const fetchProfileAndPosts = async () => {
     try {
-      const profileRes = await fetch('http://localhost:5000/api/users/' + id, {
+      const profileRes = await fetch(API_URL + '/api/users/' + id, {
         headers: { 'Authorization': 'Bearer ' + token }
       });
       const profileData = await profileRes.json();
       setUser(profileData.user);
       setIsFollowing(profileData.isFollowing);
 
-      const postsRes = await fetch('http://localhost:5000/api/posts/user/' + id, {
+      const postsRes = await fetch(API_URL + '/api/posts/user/' + id, {
         headers: { 'Authorization': 'Bearer ' + token }
       });
       const postsData = await postsRes.json();
@@ -72,10 +72,9 @@ export const UserPage: React.FC<UserPageProps> = ({ token, currentUserId }) => {
     fetchProfileAndPosts();
   }, [id, targetPostId]);
 
-  // УМНЫЙ АВТОСКРОЛЛ К ПОСТУ НА ЧУЖОЙ СТРАНИЦЕ (Без изменения порядка)
   useEffect(() => {
     if (targetPostId && posts.length > 0 && !loading) {
-      if (targetCommentId) return; // Если есть коммент, скроллит сам PostCard
+      if (targetCommentId) return;
 
       setTimeout(() => {
         const el = document.getElementById('user-post-node-' + targetPostId);
@@ -98,7 +97,7 @@ export const UserPage: React.FC<UserPageProps> = ({ token, currentUserId }) => {
   const openFollowModal = (type: 'followers' | 'following') => {
     if (!id) return;
     setModalTitle(type === 'followers' ? 'Подписчики' : 'Подписки');
-    fetch('http://localhost:5000/api/users/' + id + '/' + type, {
+    fetch(API_URL + '/api/users/' + id + '/' + type, {
       headers: { 'Authorization': 'Bearer ' + token }
     })
       .then((res) => res.json())
@@ -109,7 +108,7 @@ export const UserPage: React.FC<UserPageProps> = ({ token, currentUserId }) => {
   };
 
   const handleFollowToggle = () => {
-    fetch('http://localhost:5000/api/follows/toggle', {
+    fetch(API_URL + '/api/follows/toggle', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
       body: JSON.stringify({ following_id: id })
@@ -139,7 +138,7 @@ export const UserPage: React.FC<UserPageProps> = ({ token, currentUserId }) => {
           {currentUserId.toString() !== user.id.toString() && (
             <div className="flex gap-2">
               <Link to={'/messages?chat=' + user.id} className="rounded-xl bg-slate-100 px-5 py-2 text-sm font-bold text-slate-700 hover:bg-slate-200">Написать</Link>
-              <button onClick={handleFollowToggle} className={`rounded-xl px-5 py-2 text-sm font-bold text-white \${isFollowing ? 'bg-slate-200 text-slate-700' : 'bg-blue-600 hover:bg-blue-700'}`}>{isFollowing ? 'Отписаться' : 'Подписаться'}</button>
+              <button onClick={handleFollowToggle} className={`rounded-xl px-5 py-2 text-sm font-bold text-white ${isFollowing ? 'bg-slate-200 text-slate-700' : 'bg-blue-600 hover:bg-blue-700'}`}>{isFollowing ? 'Отписаться' : 'Подписаться'}</button>
             </div>
           )}
         </div>
@@ -161,7 +160,6 @@ export const UserPage: React.FC<UserPageProps> = ({ token, currentUserId }) => {
       <h3 className="text-xl font-bold tracking-tight text-slate-900 mb-4">Публикации @{user.username}</h3>
       <div className="flex flex-col gap-4">
         {posts.length === 0 ? <p className="text-center text-slate-400 italic">Публикаций нет.</p> : posts.map((post) => (
-          // Привязали ID контейнера для мерцания на чужой странице
           <div key={post.id} id={'user-post-node-' + post.id} className="rounded-2xl transition-all duration-700 border border-transparent p-0.5">
             <PostCard post={post} token={token} currentUserId={currentUserId} onLike={handleLike} onDelete={() => {}} />
           </div>

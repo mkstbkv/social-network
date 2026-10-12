@@ -48,7 +48,7 @@ export const Messages: React.FC<MessagesProps> = ({ token, currentUserId }) => {
   const [initialUnreadCount, setInitialUnreadCount] = useState<number>(0);
 
   const fetchActiveChats = () => {
-    fetch('http://localhost:5000/api/messages/active', {
+    fetch('/api/messages/active', {
       headers: { 'Authorization': `Bearer ${token}` }
     })
       .then((res) => res.json())
@@ -58,7 +58,7 @@ export const Messages: React.FC<MessagesProps> = ({ token, currentUserId }) => {
 
   const fetchChatHistory = (isFirstLoad = false) => {
     if (!activeChatId) return;
-    fetch(`http://localhost:5000/api/messages/${activeChatId}`, {
+    fetch(`/api/messages/${activeChatId}`, {
       headers: { 'Authorization': `Bearer ${token}` }
     })
       .then((res) => res.json())
@@ -93,7 +93,7 @@ export const Messages: React.FC<MessagesProps> = ({ token, currentUserId }) => {
       // Это первый запуск этого чата
       fetchChatHistory(true);
       
-      fetch(`http://localhost:5000/api/users/${activeChatId}`, {
+      fetch(`/api/users/${activeChatId}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       })
         .then((res) => res.json())
@@ -125,7 +125,7 @@ export const Messages: React.FC<MessagesProps> = ({ token, currentUserId }) => {
     e.preventDefault();
     if (!newMessage.trim() || !activeChatId) return;
 
-    fetch('http://localhost:5000/api/messages', {
+    fetch('/api/messages', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -145,7 +145,7 @@ export const Messages: React.FC<MessagesProps> = ({ token, currentUserId }) => {
 
   const handleDeleteMessage = (messageId: number) => {
     if (!window.confirm('Удалить сообщение для всех?')) return;
-    fetch(`http://localhost:5000/api/messages/${messageId}`, {
+    fetch(`/api/messages/${messageId}`, {
       method: 'DELETE',
       headers: { 'Authorization': `Bearer ${token}` }
     }).then(() => fetchChatHistory(false));
@@ -184,7 +184,7 @@ export const Messages: React.FC<MessagesProps> = ({ token, currentUserId }) => {
               >
                 <div className="flex items-center gap-3 overflow-hidden">
                   <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full font-bold text-sm ${activeChatId === chat.id.toString() ? 'bg-white/20 text-white' : 'bg-blue-50 text-blue-600'}`}>
-                    {chat.avatar_url ? <img src={`http://localhost:5000${chat.avatar_url}`} className="h-full w-full object-cover rounded-full" /> : chat.username.substring(0, 2).toUpperCase()}
+                    {chat.avatar_url ? <img src={`${chat.avatar_url}`} className="h-full w-full object-cover rounded-full" /> : chat.username.substring(0, 2).toUpperCase()}
                   </div>
                   <div className="overflow-hidden">
                     <p className="text-sm font-bold truncate">@{chat.username}</p>
@@ -207,7 +207,7 @@ export const Messages: React.FC<MessagesProps> = ({ token, currentUserId }) => {
           <>
             <div className="p-4 border-b border-slate-100 flex items-center gap-3">
               <div className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-50 text-xs font-bold text-blue-600">
-                {chattingWith.avatar_url ? <img src={`http://localhost:5000${chattingWith.avatar_url}`} className="h-full w-full object-cover rounded-full" /> : chattingWith.username.substring(0, 2).toUpperCase()}
+                {chattingWith.avatar_url ? <img src={`${chattingWith.avatar_url}`} className="h-full w-full object-cover rounded-full" /> : chattingWith.username.substring(0, 2).toUpperCase()}
               </div>
               <span className="font-bold text-slate-900 text-sm">@{chattingWith.username}</span>
             </div>

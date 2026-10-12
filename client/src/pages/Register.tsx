@@ -1,57 +1,68 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router';
+import { useNavigate, Link } from 'react-router';
+import { API_URL } from '../api'; // ИМПОРТИРУЕМ НАШ НАДЁЖНЫЙ URL
 
 export const Register: React.FC = () => {
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [bio, setBio] = useState('');
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<boolean>(false);
   const navigate = useNavigate();
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleRegister = (e: React.FormEvent) => {
     e.preventDefault();
-    setError(null);
-    try {
-      const response = await fetch('http://localhost:5000/api/users/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, email, password, bio }),
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Ошибка при регистрации');
-      setSuccess(true);
-      setTimeout(() => navigate('/login'), 2000);
-    } catch (err: any) {
-      setError(err.message);
+    if (!username.trim() || !email.trim() || !password.trim()) {
+      alert('Заполните все поля');
+      return;
     }
+
+    // ИСПРАВЛЕНО: Теперь адрес бэкенда подставляется со 100% гарантией из облака!
+    fetch(API_URL + '/api/users/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, email, password }),
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error('Пользователь с таким никнеймом или email уже существует');
+        return res.json();
+      })
+      .then(() => {
+        alert('Регистрация успешна! Войдите в аккаунт.');
+        navigate('/login');
+      })
+      .catch((err) => alert(err.message));
   };
-
   return (
-    <div className="mx-auto mt-8 max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-xl shadow-slate-100">
-      <h2 className="text-center text-2xl font-bold tracking-tight text-slate-900">Регистрация</h2>
-      
-      {error && <div className="mt-4 rounded-lg bg-rose-50 p-3 text-center text-sm font-medium text-rose-600">⚠️ {error}</div>}
-      {success && <div className="mt-4 rounded-lg bg-emerald-50 p-3 text-center text-sm font-medium text-emerald-600">🎉 Успешно! Входим...</div>}
-
-      <form onSubmit={handleSubmit} className="mt-6 flex flex-col gap-4">
-        <input type="text" placeholder="Имя пользователя (@username)" value={username} onChange={(e) => setUsername(e.target.value)} required className="rounded-xl border border-slate-200 px-4 py-3 text-sm transition-all focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100" />
-        <input type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} required className="rounded-xl border border-slate-200 px-4 py-3 text-sm transition-all focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100" />
-        <input type="password" placeholder="Пароль" value={password} onChange={(e) => setPassword(e.target.value)} required className="rounded-xl border border-slate-200 px-4 py-3 text-sm transition-all focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100" />
-        <textarea placeholder="О себе (необязательно)" value={bio} onChange={(e) => setBio(e.target.value)} rows={3} className="rounded-xl border border-slate-200 px-4 py-3 text-sm transition-all resize-none focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100" />
+    <div className="flex min-h-[80vh] items-center justify-center px-4">
+      <div className="w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-6 shadow-xl">
+        <div className="flex flex-col items-center mb-6">
+          <span className="text-3xl mb-1">🚀</span>
+          <h2 className="text-xl font-black text-slate-900 tracking-tight">Регистрация аккаунта</h2>
+          <p className="text-xs text-slate-400 mt-1">Присоединяйтесь к нашей сети</p>
+        </div>
         
-        <button type="submit" className="mt-2 rounded-xl bg-emerald-600 py-3 text-sm font-semibold text-white shadow-lg shadow-emerald-100 transition-all hover:bg-emerald-700 active:scale-[0.98]">
-          Зарегистрироваться
-        </button>
-      </form>
+        <form onSubmit={handleRegister} className="flex flex-col gap-4">
+          <div>
+            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Имя пользователя</label>
+            <input type="text" value={username} onChange={(e) => setUsername(e.target.value)} placeholder="ivan_dev" className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none" />
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Email адрес</label>
+            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="ivan@mail.com" className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none" />
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Пароль</label>
+            <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••" className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none" />
+          </div>
+          <button type="submit" className="mt-2 rounded-xl bg-blue-600 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 transition-colors">
+            Создать аккаунт
+          </button>
+        </form>
 
-      <p className="mt-6 text-center text-sm text-slate-500">
-        Уже есть аккаунт?{' '}
-        <Link to="/login" className="font-semibold text-blue-600 cursor-pointer hover:underline">
-          Войти
-        </Link>
-      </p>
+        <p className="mt-4 text-center text-xs text-slate-500">
+          Уже есть профиль?{' '}
+          <Link to="/login" className="font-bold text-blue-600 hover:underline">Войти</Link>
+        </p>
+      </div>
     </div>
   );
 };

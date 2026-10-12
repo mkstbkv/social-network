@@ -19,7 +19,10 @@ const PORT = process.env.PORT || 5000;
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-app.use(cors());
+app.use(cors({
+  origin: 'https://social-network-app-cymb.onrender.com', // Ссылка на твой Static Site
+  credentials: true
+}));
 app.use(express.json());
 
 const uploadDir = path.join(__dirname, 'uploads');

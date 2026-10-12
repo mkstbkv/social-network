@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { PostCard } from '../components/PostCard';
+import { API_URL } from '../api';
 
 interface Post {
   id: number;
@@ -29,8 +30,8 @@ export const Feed: React.FC<FeedProps> = ({ token, currentUserId }) => {
   const fetchPosts = () => {
     setLoading(true);
     const endpoint = activeTab === 'all' 
-      ? 'http://localhost:5000/api/posts' 
-      : 'http://localhost:5000/api/follows/feed';
+      ? API_URL + '/api/posts' 
+      : API_URL + '/api/follows/feed';
 
     fetch(endpoint, {
       headers: { 'Authorization': 'Bearer ' + token }
@@ -58,7 +59,7 @@ export const Feed: React.FC<FeedProps> = ({ token, currentUserId }) => {
     formData.append('content', content);
     if (image) formData.append('image', image);
 
-    fetch('http://localhost:5000/api/posts', {
+    fetch(API_URL + '/api/posts', {
       method: 'POST',
       headers: { 'Authorization': 'Bearer ' + token },
       body: formData,
@@ -86,12 +87,11 @@ export const Feed: React.FC<FeedProps> = ({ token, currentUserId }) => {
 
   const handleDeletePost = (postId: number) => {
     if (!window.confirm('Вы уверены?')) return;
-    fetch('http://localhost:5000/api/posts/' + postId, {
+    fetch(API_URL + '/api/posts/' + postId, {
       method: 'DELETE',
       headers: { 'Authorization': 'Bearer ' + token }
     }).then(() => fetchPosts());
   };
-
   return (
     <div className="mx-auto max-w-2xl">
       <div className="mb-6 flex border-b border-slate-200 font-semibold text-sm">
@@ -109,8 +109,17 @@ export const Feed: React.FC<FeedProps> = ({ token, currentUserId }) => {
           <div className="flex items-center justify-between border-t border-slate-50 pt-2">
             <label className="flex cursor-pointer items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-blue-600 select-none">
               <span>🖼️</span> Прикрепить фото
-              <input id="file-input" type="file" accept="image/*" onChange={(e) => setImage(e.target.files ? e.target.files[0] : null)} className="hidden" />
-            </label>
+              <input
+                id="file-input"
+                type="file"
+                accept="image/*"
+                onChange={(e) => {
+                  // Проверяем, что файлы выбраны, и берём строго первый файл по индексу [0]
+                  const selectedFile = e.target.files && e.target.files.length > 0 ? e.target.files[0] : null;
+                  setImage(selectedFile); // Теперь типы идеально совпадают!
+                }}
+                className="hidden"
+              />            </label>
             {image && <span className="text-xs text-emerald-600 font-semibold truncate max-w-[150px]">Файл: {image.name}</span>}
             <button type="submit" className="rounded-xl bg-blue-600 px-5 py-2 text-sm font-semibold text-white hover:bg-blue-700">Опубликовать</button>
           </div>
