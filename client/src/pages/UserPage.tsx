@@ -127,7 +127,7 @@ export const UserPage: React.FC<UserPageProps> = ({ token, currentUserId }) => {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-slate-50 overflow-hidden text-xl font-bold text-slate-600">
-              {user.avatar_url ? <img src={'http://localhost:5000' + user.avatar_url} alt="Аватар" className="h-full w-full object-cover" /> : user.username ? user.username.toUpperCase().substring(0, 2) : 'US'}
+              {user.avatar_url ? <img src={API_URL + user.avatar_url} alt="Аватар" className="h-full w-full object-cover" /> : user.username ? user.username.toUpperCase().substring(0, 2) : 'US'}
             </div>
             <div>
               <h2 className="text-xl font-black text-slate-900">@{user.username}</h2>
@@ -137,8 +137,16 @@ export const UserPage: React.FC<UserPageProps> = ({ token, currentUserId }) => {
 
           {currentUserId.toString() !== user.id.toString() && (
             <div className="flex gap-2">
-              <Link to={'/messages?chat=' + user.id} className="rounded-xl bg-slate-100 px-5 py-2 text-sm font-bold text-slate-700 hover:bg-slate-200">Написать</Link>
-              <button onClick={handleFollowToggle} className={`rounded-xl px-5 py-2 text-sm font-bold text-white ${isFollowing ? 'bg-slate-200 text-slate-700' : 'bg-blue-600 hover:bg-blue-700'}`}>{isFollowing ? 'Отписаться' : 'Подписаться'}</button>
+              {/* НАДЁЖНО: Кнопка "Написать" ведет в мессенджер к диалогу с этим юзером */}
+              <Link to={'/messages?chat=' + user.id} className="rounded-xl bg-slate-100 px-5 py-2 text-sm font-bold text-slate-700 hover:bg-slate-200 transition-colors">
+                Написать
+              </Link>
+              <button 
+                onClick={handleFollowToggle} 
+                className={'rounded-xl px-5 py-2 text-sm font-bold text-white transition-colors ' + (isFollowing ? 'bg-slate-200 text-slate-700 hover:bg-slate-300' : 'bg-blue-600 hover:bg-blue-700')}
+              >
+                {isFollowing ? 'Отписаться' : 'Подписаться'}
+              </button>
             </div>
           )}
         </div>
@@ -170,3 +178,4 @@ export const UserPage: React.FC<UserPageProps> = ({ token, currentUserId }) => {
     </div>
   );
 };
+
