@@ -19,6 +19,34 @@ const PORT = process.env.PORT || 5000;
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+app.use(cors({
+  origin: 'https://social-network-app-cymb.onrender.com', // Ссылка на твой Static Site
+  credentials: true
+}));
+app.use(express.json());
+
+const uploadDir = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
+
+app.use('/uploads', express.static(uploadDir));
+
+// Маршруты приложения
+app.use('/api/users', userRoutes);
+app.use('/api/posts', postRoutes);
+app.use('/api/comments', commentRoutes);
+app.use('/api/follows', followRoutes);
+app.use('/api/notifications', notificationRoutes);
+app.use('/api/messages', messageRoutes); // Регистрируем эндпоинт сообщений
+
+app.get('/', (req, res) => {
+  res.send('API Социальной сети успешно запущено!');
+});
+
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`Сервер успешно запущен на порту ${PORT}`);
+});
 // Автоматическая инициализация таблиц в облаке при старте сервера
 const initDatabase = async () => {
   try {
@@ -94,42 +122,21 @@ const initDatabase = async () => {
       );
     `);
 
+      await pool.query(`
+      CREATE TABLE IF NOT EXISTS comment_likes (
+        id SERIAL PRIMARY KEY,
+        user_id INT REFERENCES users(id) ON DELETE CASCADE,
+        comment_id INT REFERENCES comments(id) ON DELETE CASCADE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(user_id, comment_id)
+      );
+    `);
+
     console.log('✅ Все таблицы базы данных успешно проверены/созданы в облаке!');
   } catch (err) {
     console.error('❌ Ошибка инициализации структуры БД:', err);
   }
 };
-
-
-
-app.use(cors({
-  origin: 'https://social-network-app-cymb.onrender.com', // Ссылка на твой Static Site
-  credentials: true
-}));
-app.use(express.json());
-
-const uploadDir = path.join(__dirname, 'uploads');
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-}
-
-app.use('/uploads', express.static(uploadDir));
-
-// Маршруты приложения
-app.use('/api/users', userRoutes);
-app.use('/api/posts', postRoutes);
-app.use('/api/comments', commentRoutes);
-app.use('/api/follows', followRoutes);
-app.use('/api/notifications', notificationRoutes);
-app.use('/api/messages', messageRoutes); // Регистрируем эндпоинт сообщений
-
-app.get('/', (req, res) => {
-  res.send('API Социальной сети успешно запущено!');
-});
-
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Сервер успешно запущен на порту ${PORT}`);
-});
 
 // Запускаем инициализацию сразу после старта сервера
 initDatabase();

@@ -30,8 +30,9 @@ export const registerUser = async (req, res) => {
 
     res.status(201).json({ message: 'Успешно зарегистрирован', user: newUser.rows[0] });
   } catch (error) {
-    console.error('Ошибка при регистрации:', error);
-    res.status(500).json({ error: 'Ошибка сервера' });
+    // КРИТИЧЕСКИ ВАЖНО: Выводим полную ошибку в терминал хостинга
+    console.error('Критическая ошибка при регистрации пользователя:', error);
+    res.status(500).json({ error: 'Внутренняя ошибка сервера: ' + error.message });
   }
 };
 
