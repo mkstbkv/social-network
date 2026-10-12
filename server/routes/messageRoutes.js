@@ -9,7 +9,8 @@ import {
   getLastMessagesPreview
 } from '../controllers/messageController.js';
 
-import verifyToken from '../middleware/auth.js'; // Убедись, что путь к твоему middleware верный
+// ИСПРАВЛЕНО: Обернули в фигурные скобки для работы именованного экспорта из auth.js
+import { verifyToken } from '../middleware/auth.js'; 
 
 const router = express.Router();
 
