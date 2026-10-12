@@ -5,25 +5,33 @@ import { Profile } from './pages/Profile';
 import { UserPage } from './pages/UserPage';
 import { Login } from './pages/Login';
 import { Register } from './pages/Register';
-import Messages from './pages/Messages'; // ИСПРАВЛЕНО: Чистый дефолтный импорт страницы чатов
+import Messages from './pages/Messages';
 import { NotificationDropdown } from './components/NotificationDropdown';
 import { API_URL } from './api';
 
 export default function App() {
   const [token, setToken] = useState<string | null>(localStorage.getItem('token'));
   const [user, setUser] = useState<any>(null);
+  
+  // НОВЫЙ ФЛАГ: Блокирует поспешный редирект, пока считывается localStorage
+  const [checkingAuth, setCheckingAuth] = useState<boolean>(true);
   const navigate = useNavigate();
 
   useEffect(() => {
     const savedUser = localStorage.getItem('user');
-    if (savedUser && savedUser !== 'undefined') {
+    const savedToken = localStorage.getItem('token');
+    
+    if (savedToken && savedUser && savedUser !== 'undefined') {
       try {
+        setToken(savedToken);
         setUser(JSON.parse(savedUser));
       } catch (e) {
-        console.error(e);
+        console.error('Ошибка парсинга сессии:', e);
       }
     }
-  }, [token]);
+    // Проверка завершена, сессия считана локально
+    setCheckingAuth(false);
+  }, []);
 
   const handleLoginSuccess = (newToken: string, newUser: any) => {
     localStorage.setItem('token', newToken);
@@ -44,6 +52,11 @@ export default function App() {
   const handleUserUpdate = (updatedUser: any) => {
     setUser(updatedUser);
   };
+
+  // Пока считывается токен, рендерим аккуратный пустой экран, сохраняя URL
+  if (checkingAuth) {
+    return <div className="min-h-screen bg-slate-50" />;
+  }
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800">
       {token && user && (
@@ -90,16 +103,17 @@ export default function App() {
 
       <main className="mx-auto max-w-4xl p-4">
         <Routes>
-          <Route path="/" element={token && user ? <Feed token={token} currentUserId={user.id} /> : <Navigate to="/login" />} />
-          <Route path="/profile" element={token && user ? <Profile token={token} user={user} onUserUpdate={handleUserUpdate} /> : <Navigate to="/login" />} />
-          <Route path="/user/:id" element={token && user ? <UserPage token={token} currentUserId={user.id} /> : <Navigate to="/login" />} />
+          {/* ИСПРАВЛЕНО: Роуты больше не перекидывают на главную при обновлении страницы */}
+          <Route path="/" element={token && user ? <Feed token={token} currentUserId={user.id} /> : <Navigate to="/login" replace />} />
+          <Route path="/profile" element={token && user ? <Profile token={token} user={user} onUserUpdate={handleUserUpdate} /> : <Navigate to="/login" replace />} />
+          <Route path="/user/:id" element={token && user ? <UserPage token={token} currentUserId={user.id} /> : <Navigate to="/login" replace />} />
+          <Route path="/messages" element={token && user ? <Messages token={token} currentUserId={user.id} /> : <Navigate to="/login" replace />} />
           
-          {/* Стабильный роут страницы сообщений */}
-          <Route path="/messages" element={token && user ? <Messages token={token} currentUserId={user.id} /> : <Navigate to="/login" />} />
+          <Route path="/login" element={!token ? <Login onLoginSuccess={handleLoginSuccess} /> : <Navigate to="/" replace />} />
+          <Route path="/register" element={!token ? <Register /> : <Navigate to="/" replace />} />
           
-          <Route path="/login" element={!token ? <Login onLoginSuccess={handleLoginSuccess} /> : <Navigate to="/" />} />
-          <Route path="/register" element={!token ? <Register /> : <Navigate to="/" />} />
-          <Route path="*" element={<Navigate to="/" />} />
+          {/* Если роут не найден, мягко возвращаем на главную без жесткого сброса */}
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
     </div>

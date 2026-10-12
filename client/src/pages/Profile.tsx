@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router';
 import { PostCard } from '../components/PostCard';
 import { FollowModal } from '../components/FollowModal';
-import { API_URL } from '../api'; // ИМПОРТИРУЕМ НАШ НАДЁЖНЫЙ URL
+import { API_URL } from '../api';
 
 interface Post {
   id: number;
@@ -40,10 +40,29 @@ export const Profile: React.FC<ProfileProps> = ({ token, user, onUserUpdate }) =
   const [modalTitle, setModalTitle] = useState<string>('');
   const [modalUsers, setModalUsers] = useState<FollowUser[]>([]);
 
+  // НОВЫЙ СТЕЙТ: Для хранения свежих счетчиков подписок из базы данных
+  const [profileInfo, setProfileInfo] = useState<any>(null);
+
   const [searchParams, setSearchParams] = useSearchParams();
   const targetPostId = searchParams.get('post');
 
   const currentUser = Array.isArray(user) ? user : user;
+
+  // Функция для запроса свежих данных профиля с сервера
+  const fetchProfileData = () => {
+    if (!currentUser?.id) return;
+    fetch(API_URL + '/api/users/' + currentUser.id, {
+      headers: { 'Authorization': 'Bearer ' + token }
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        if (data && data.user) {
+          setProfileInfo(data.user);
+          if (data.user.bio) setBio(data.user.bio);
+        }
+      })
+      .catch((err) => console.error('Ошибка получения профиля:', err));
+  };
 
   const fetchUserPosts = () => {
     if (!currentUser?.id) return;
@@ -59,10 +78,11 @@ export const Profile: React.FC<ProfileProps> = ({ token, user, onUserUpdate }) =
       .catch(() => setLoading(false));
   };
 
+  // ИСПРАВЛЕНО: При загрузке страницы принудительно обновляем и посты, и счетчики подписок
   useEffect(() => {
     fetchUserPosts();
-    if (currentUser?.bio) setBio(currentUser.bio);
-  }, [currentUser?.id, currentUser?.bio, targetPostId]);
+    fetchProfileData();
+  }, [currentUser?.id, targetPostId]);
 
   useEffect(() => {
     if (targetPostId && posts.length > 0 && !loading) {
@@ -84,17 +104,13 @@ export const Profile: React.FC<ProfileProps> = ({ token, user, onUserUpdate }) =
     }
   }, [targetPostId, posts, loading]);
 
-  // ИСПРАВЛЕНО: Теперь списки подписок в твоем профиле летят на облачный API_URL!
   const openFollowModal = (type: 'followers' | 'following') => {
     if (!currentUser?.id) return;
     setModalTitle(type === 'followers' ? 'Подписчики' : 'Подписки');
     fetch(API_URL + '/api/users/' + currentUser.id + '/' + type, {
       headers: { 'Authorization': 'Bearer ' + token }
     })
-      .then((res) => {
-        if (!res.ok) throw new Error('Ошибка сервера при загрузке подписок');
-        return res.json();
-      })
+      .then((res) => res.json())
       .then((data) => {
         setModalUsers(Array.isArray(data) ? data : []);
         setModalOpen(true);
@@ -119,6 +135,7 @@ export const Profile: React.FC<ProfileProps> = ({ token, user, onUserUpdate }) =
         const updated = data.user;
         localStorage.setItem('user', JSON.stringify(updated));
         onUserUpdate(updated);
+        fetchProfileData(); // Перезапрашиваем данные
       })
       .catch((err) => console.error('Ошибка загрузки аватара:', err));
   };
@@ -136,6 +153,7 @@ export const Profile: React.FC<ProfileProps> = ({ token, user, onUserUpdate }) =
         localStorage.setItem('user', JSON.stringify(updated));
         onUserUpdate(updated);
         setIsEditing(false);
+        fetchProfileData(); // Перезапрашиваем данные
       });
   };
 
@@ -157,7 +175,11 @@ export const Profile: React.FC<ProfileProps> = ({ token, user, onUserUpdate }) =
       <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm mb-6">
         <div className="flex items-center gap-4">
           <div onClick={() => fileInputRef.current?.click()} className="group relative flex h-20 w-20 shrink-0 cursor-pointer items-center justify-center rounded-full border border-slate-200 bg-blue-50 overflow-hidden text-2xl font-black text-blue-600 transition-all hover:opacity-90">
-            {currentUser?.avatar_url ? <img src={API_URL + currentUser.avatar_url} alt="Аватар" className="h-full w-full object-cover" /> : (currentUser?.username ? currentUser.username.toUpperCase().substring(0, 2) : 'US')}
+            {profileInfo?.avatar_url || currentUser?.avatar_url ? (
+              <img src={API_URL + (profileInfo?.avatar_url || currentUser?.avatar_url)} alt="Аватар" className="h-full w-full object-cover" />
+            ) : (
+              currentUser?.username ? currentUser.username.toUpperCase().substring(0, 2) : 'US'
+            )}
             <div className="absolute inset-0 flex items-center justify-center bg-black/40 text-[10px] text-white font-bold opacity-0 transition-opacity group-hover:opacity-100">Сменить</div>
           </div>
           <input type="file" accept="image/*" ref={fileInputRef} onChange={handleAvatarChange} className="hidden" />
@@ -167,12 +189,17 @@ export const Profile: React.FC<ProfileProps> = ({ token, user, onUserUpdate }) =
           </div>
         </div>
 
+        {/* ИСПРАВЛЕНО: Счетчики теперь выводят точные цифры напрямую из базы данных в реальном времени! */}
         <div className="mt-4 flex gap-6 text-sm text-slate-600 border-t border-slate-100 pt-3">
           <button onClick={() => openFollowModal('following')} className="hover:text-blue-600 hover:underline focus:outline-none">
-            <strong className="text-slate-900 font-bold mr-1">{currentUser?.following_count || 0}</strong> подписок
+            <strong className="text-slate-900 font-bold mr-1">
+              {profileInfo !== null ? profileInfo.following_count : (currentUser?.following_count || 0)}
+            </strong> подписок
           </button>
           <button onClick={() => openFollowModal('followers')} className="hover:text-blue-600 hover:underline focus:outline-none">
-            <strong className="text-slate-900 font-bold mr-1">{currentUser?.followers_count || 0}</strong> подписчиков
+            <strong className="text-slate-900 font-bold mr-1">
+              {profileInfo !== null ? profileInfo.followers_count : (currentUser?.followers_count || 0)}
+            </strong> подписчиков
           </button>
         </div>
 
@@ -181,13 +208,13 @@ export const Profile: React.FC<ProfileProps> = ({ token, user, onUserUpdate }) =
             <form onSubmit={handleUpdateBio} className="flex flex-col gap-3">
               <textarea value={bio} onChange={(e) => setBio(e.target.value)} rows={3} className="w-full rounded-xl border border-slate-200 p-3 text-sm focus:border-blue-500 focus:outline-none resize-none" />
               <div className="flex gap-2 justify-end">
-                <button type="button" onClick={() => { setIsEditing(false); setBio(currentUser.bio || ''); }} className="rounded-xl bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-600">Отмена</button>
+                <button type="button" onClick={() => { setIsEditing(false); setBio(profileInfo?.bio || currentUser.bio || ''); }} className="rounded-xl bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-600">Отмена</button>
                 <button type="submit" className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white">Сохранить</button>
               </div>
             </form>
           ) : (
             <div>
-              <p className="text-base text-slate-600 italic">{currentUser?.bio || 'Описание профиля отсутствует.'}</p>
+              <p className="text-base text-slate-600 italic">{profileInfo?.bio || currentUser?.bio || 'Описание профиля отсутствует.'}</p>
               <button onClick={() => setIsEditing(true)} className="mt-3 text-sm font-semibold text-blue-600 hover:underline">Редактировать профиль</button>
             </div>
           )}
