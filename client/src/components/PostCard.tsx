@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useSearchParams, useNavigate } from 'react-router';
+import { API_URL } from '../api';
 
 interface Comment {
   id: number;
@@ -52,7 +53,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post, token, currentUserId, 
   }, [post.comments_count, post.likes_count, post.is_liked]);
 
   const fetchComments = () => {
-    fetch('/api/comments/' + post.id, {
+    fetch(API_URL + '/api/comments/' + post.id, {
       headers: { 'Authorization': 'Bearer ' + token }
     })
       .then((res) => res.json())
@@ -116,7 +117,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post, token, currentUserId, 
     }
 
     const delayDebounceTimer = setTimeout(() => {
-      fetch('http://localhost:5000/api/users/search?query=' + query, {
+      fetch(API_URL + '/api/users/search?query=' + query, {
         headers: { 'Authorization': 'Bearer ' + token }
       })
         .then((res) => res.json())
@@ -142,7 +143,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post, token, currentUserId, 
   const handleMentionTextClick = (rawText: string) => {
     const cleanUsername = rawText.replace(/[@.,\/#!$%\^&\*;:{}=\-_`~()]/g, "").trim();
 
-    fetch('http://localhost:5000/api/users/by-username/' + encodeURIComponent(cleanUsername), {
+    fetch(API_URL + '/api/users/by-username/' + encodeURIComponent(cleanUsername), {
       headers: { 'Authorization': 'Bearer ' + token }
     })
       .then((res) => {
@@ -176,35 +177,24 @@ export const PostCard: React.FC<PostCardProps> = ({ post, token, currentUserId, 
     setIsLocalPostLiked(nextLikedState);
     setPostLikesCount(prev => nextLikedState ? prev + 1 : Math.max(0, prev - 1));
 
-    fetch('http://localhost:5000/api/posts/like', {
+    fetch(API_URL + '/api/posts/like', {
       method: 'POST',
-      headers: { 
-        'Content-Type': 'application/json', 
-        'Authorization': 'Bearer ' + token 
-      },
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
       body: JSON.stringify({ post_id: post.id }),
     })
-      .then((res) => {
-        if (!res.ok) throw new Error('Ошибка сервера');
-        return res.json();
-      })
-      .then((data) => {
-        setIsLocalPostLiked(data.liked);
-      })
-      .catch((err) => {
-        console.error(err);
-        // Откатываем стейт назад, если сервер вернул ошибку
+      .then((res) => res.json())
+      .then((data) => setIsLocalPostLiked(data.liked))
+      .catch(() => {
         setIsLocalPostLiked(post.is_liked);
         setPostLikesCount(post.likes_count);
       });
   };
 
-
   const handleAddComment = (e: React.FormEvent) => {
     e.preventDefault();
     if (!commentContent.trim()) return;
 
-    fetch('/api/comments', {
+    fetch(API_URL + '/api/comments', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
       body: JSON.stringify({ post_id: post.id, content: commentContent, parent_id: replyToId }),
@@ -225,7 +215,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post, token, currentUserId, 
   const handleSaveEdit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!editedContent.trim()) return;
-    fetch('/api/posts/' + post.id, {
+    fetch(API_URL + '/api/posts/' + post.id, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
       body: JSON.stringify({ content: editedContent }),
@@ -237,7 +227,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post, token, currentUserId, 
 
   const handleDeleteComment = (commentId: number) => {
     if (!window.confirm('Удалить комментарий?')) return;
-    fetch('/api/comments/' + commentId, {
+    fetch(API_URL + '/api/comments/' + commentId, {
       method: 'DELETE',
       headers: { 'Authorization': 'Bearer ' + token }
     }).then(() => {
@@ -248,7 +238,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post, token, currentUserId, 
 
   const handleCommentLike = (commentId: number) => {
     setComments((prev) => prev.map((c) => c.id === commentId ? { ...c, is_liked: !c.is_liked, likes_count: c.is_liked ? c.likes_count - 1 : c.likes_count + 1 } : c));
-    fetch('/api/comments/like', {
+    fetch(API_URL + '/api/comments/like', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
       body: JSON.stringify({ comment_id: commentId }),
@@ -261,7 +251,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post, token, currentUserId, 
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Link to={post.user_id.toString() === currentUserId.toString() ? "/profile" : '/user/' + post.user_id} className="h-10 w-10 shrink-0 overflow-hidden rounded-full border border-slate-100 bg-slate-50 flex items-center justify-center font-bold text-slate-500">
-            {post.avatar_url ? <img src={'' + post.avatar_url} alt="Аватар" className="h-full w-full object-cover" /> : post.username ? post.username.toUpperCase().substring(0, 2) : 'US'}
+            {post.avatar_url ? <img src={API_URL + post.avatar_url} alt="Аватар" className="h-full w-full object-cover" /> : post.username ? post.username.toUpperCase().substring(0, 2) : 'US'}
           </Link>
           <div className="flex flex-col">
             <Link to={post.user_id.toString() === currentUserId.toString() ? "/profile" : '/user/' + post.user_id} className="text-base font-bold text-slate-900 hover:text-blue-600 hover:underline">
@@ -292,7 +282,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post, token, currentUserId, 
 
       {post.image_url && (
         <div className="mt-3 overflow-hidden rounded-xl border border-slate-100 bg-slate-50">
-          <img src={'' + post.image_url} alt="Контент" className="max-h-96 w-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+          <img src={API_URL + post.image_url} alt="Контент" className="max-h-96 w-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
         </div>
       )}
 
@@ -325,7 +315,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post, token, currentUserId, 
                   {searchSuggestions.map((u) => (
                     <button key={u.id} type="button" onClick={() => handleSuggestionClick(u.username)} className="flex items-center gap-2 w-full rounded-lg p-1.5 text-left text-xs font-bold text-slate-800 hover:bg-slate-50">
                       <div className="h-6 w-6 rounded-full bg-blue-50 flex items-center justify-center text-[10px] text-blue-600 overflow-hidden shrink-0">
-                        {u.avatar_url ? <img src={'' + u.avatar_url} className="h-full w-full object-cover" /> : u.username.substring(0,2).toUpperCase()}
+                        {u.avatar_url ? <img src={API_URL + u.avatar_url} className="h-full w-full object-cover" /> : u.username.substring(0,2).toUpperCase()}
                       </div>
                       <span className="truncate">@{u.username}</span>
                     </button>

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router';
-import { API_URL } from '../api'; // ИМПОРТИРУЕМ НАШ НАДЁЖНЫЙ URL
+import { API_URL } from '../api';
 
 export const Register: React.FC = () => {
   const [username, setUsername] = useState('');
@@ -15,7 +15,6 @@ export const Register: React.FC = () => {
       return;
     }
 
-    // ИСПРАВЛЕНО: Теперь адрес бэкенда подставляется со 100% гарантией из облака!
     fetch(API_URL + '/api/users/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -31,8 +30,9 @@ export const Register: React.FC = () => {
       })
       .catch((err) => alert(err.message));
   };
+
   return (
-    <div className="flex min-h-[80vh] items-center justify-center px-4">
+    <div className="flex min-h-[80vh] items-center justify-center px-4 bg-slate-50">
       <div className="w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-6 shadow-xl">
         <div className="flex flex-col items-center mb-6">
           <span className="text-3xl mb-1">🚀</span>

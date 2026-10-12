@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router';
-import { API_URL } from '../api'; // ИМПОРТИРУЕМ НАШ НАДЁЖНЫЙ URL
+import { API_URL } from '../api';
 
 interface LoginProps {
   onLoginSuccess: (token: string, user: any) => void;
@@ -18,7 +18,6 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
       return;
     }
 
-    // ИСПРАВЛЕНО: Динамический вызов облачного бэкенда через плюс!
     fetch(API_URL + '/api/users/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -34,8 +33,9 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
       })
       .catch((err) => alert(err.message));
   };
+
   return (
-    <div className="flex min-h-[80vh] items-center justify-center px-4">
+    <div className="flex min-h-[80vh] items-center justify-center px-4 bg-slate-50">
       <div className="w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-6 shadow-xl">
         <div className="flex flex-col items-center mb-6">
           <span className="text-3xl mb-1">🔐</span>

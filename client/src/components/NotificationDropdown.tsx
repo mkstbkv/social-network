@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router';
+import { API_URL } from '../api';
 
 interface Notification {
   id: number;
@@ -25,7 +26,7 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({ toke
   const navigate = useNavigate();
 
   const fetchNotifications = () => {
-    fetch('http://localhost:5000/api/notifications', {
+    fetch(API_URL + '/api/notifications', {
       headers: { 'Authorization': 'Bearer ' + token }
     })
       .then((res) => res.json())
@@ -49,15 +50,11 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({ toke
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Клик по конкретному уведомлению делает его прочитанным (Индивидуально)
   const handleNotificationClick = (n: Notification) => {
     setIsOpen(false);
-
-    // Локально глушим синюю точку, чтобы не ждать ответа бэкенда
     setNotifications(prev => prev.map(item => item.id === n.id ? { ...item, is_read: true } : item));
 
-    // На бэкенде у нас есть общий роут /read, но для лучшего UX мы можем просто прочитать все при закрытии или клике
-    fetch('http://localhost:5000/api/notifications/read', {
+    fetch(API_URL + '/api/notifications/read', {
       method: 'PUT',
       headers: { 'Authorization': 'Bearer ' + token }
     }).then(() => fetchNotifications());
@@ -80,7 +77,7 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({ toke
   };
 
   const handleMarkAllAsRead = () => {
-    fetch('/api/notifications/read', {
+    fetch(API_URL + '/api/notifications/read', {
       method: 'PUT',
       headers: { 'Authorization': 'Bearer ' + token }
     }).then(() => fetchNotifications());
@@ -88,7 +85,7 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({ toke
 
   const handleClearAll = () => {
     if (!window.confirm('Очистить уведомления?')) return;
-    fetch('/api/notifications/clear', {
+    fetch(API_URL + '/api/notifications/clear', {
       method: 'DELETE',
       headers: { 'Authorization': `Bearer ` + token }
     })
@@ -111,19 +108,15 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({ toke
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 z-50 mt-2 w-80 rounded-2xl border border-slate-100 bg-white p-2.5 shadow-2xl animate-fade-in flex flex-col">
+        <div className="absolute right-0 z-50 mt-2 w-80 rounded-2xl border border-slate-100 bg-white p-2.5 shadow-2xl flex flex-col">
           <div className="flex items-center justify-between px-3 py-2 border-b border-slate-50">
             <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider">Уведомления</h4>
             <div className="flex gap-2.5 text-[11px] font-bold">
               {unreadNotifications.length > 0 && (
-                <button onClick={handleMarkAllAsRead} className="text-blue-600 hover:text-blue-800 hover:underline">
-                  Прочитать всё
-                </button>
+                <button onClick={handleMarkAllAsRead} className="text-blue-600 hover:text-blue-800 hover:underline">Прочитать всё</button>
               )}
               {notifications.length > 0 && (
-                <button onClick={handleClearAll} className="text-rose-500 hover:text-rose-700 hover:underline">
-                  Очистить
-                </button>
+                <button onClick={handleClearAll} className="text-rose-500 hover:text-rose-700 hover:underline">Очистить</button>
               )}
             </div>
           </div>
@@ -133,16 +126,11 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({ toke
               <p className="p-6 text-center text-xs text-slate-400 italic">Уведомлений пока нет</p>
             ) : (
               <>
-                {/* 1. БЛОК С НЕПРОЧИТАННЫМИ УВЕДОМЛЕНИЯМИ */}
                 {unreadNotifications.length > 0 && (
                   <div className="flex flex-col gap-1">
                     <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-2.5 mb-0.5">Новые</div>
                     {unreadNotifications.map((n) => (
-                      <div 
-                        key={n.id} 
-                        onClick={() => handleNotificationClick(n)}
-                        className="p-3 rounded-xl text-xs flex items-center justify-between cursor-pointer border border-blue-100/50 bg-blue-50/40 text-slate-900 hover:bg-blue-50 transition-colors shadow-sm relative group"
-                      >
+                      <div key={n.id} onClick={() => handleNotificationClick(n)} className="p-3 rounded-xl text-xs flex items-center justify-between cursor-pointer border border-blue-100/50 bg-blue-50/40 text-slate-900 hover:bg-blue-50 transition-colors shadow-sm relative group">
                         <div className="pr-4 leading-relaxed">
                           <strong>@{n.sender_username}</strong>{' '}
                           {n.type === 'like' && 'поставил(а) лайк вашему посту'}
@@ -153,23 +141,17 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({ toke
                           {n.type === 'follow' && 'подписался(ась) на ваши обновления'}
                           <div className="text-[9px] text-slate-400 mt-1 font-medium">{new Date(n.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
                         </div>
-                        {/* Синяя живая точка-маркер */}
                         <span className="h-2 w-2 rounded-full bg-blue-600 shrink-0 shadow-sm shadow-blue-300"></span>
                       </div>
                     ))}
                   </div>
                 )}
 
-                {/* 2. БЛОК С ПРОЧИТАННЫМИ УВЕДОМЛЕНИЯМИ */}
                 {readNotifications.length > 0 && (
                   <div className="flex flex-col gap-1 mt-1">
                     <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-2.5 mb-0.5">Раньше</div>
                     {readNotifications.map((n) => (
-                      <div 
-                        key={n.id} 
-                        onClick={() => handleNotificationClick(n)}
-                        className="p-3 rounded-xl text-xs border border-transparent bg-white text-slate-500 hover:bg-slate-50 transition-colors cursor-pointer"
-                      >
+                      <div key={n.id} onClick={() => handleNotificationClick(n)} className="p-3 rounded-xl text-xs border border-transparent bg-white text-slate-500 hover:bg-slate-50 transition-colors cursor-pointer">
                         <div className="leading-relaxed">
                           <strong className="text-slate-700">@{n.sender_username}</strong>{' '}
                           {n.type === 'like' && 'поставил(а) лайк вашему посту'}
