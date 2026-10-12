@@ -23,19 +23,24 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const httpServer = createServer(app); // Создаем HTTP сервер для сокетов
 
+// Настройка списка доверенных доменов для веб-сокетов
 const allowedOrigins = [
-  'https://onrender.com',
+  'https://social-network-app-cymb.onrender.com',
   'http://localhost:5173',
   'http://localhost:3000'
 ];
 
-// Инициализируем Socket.io с поддержкой CORS
+// ИСПРАВЛЕНО: Добавлен строгийcredentials и разрешенные заголовки для обхода CORS в Socket.io
 const io = new Server(httpServer, {
   cors: {
     origin: allowedOrigins,
-    methods: ['GET', 'POST']
-  }
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    credentials: true // КРИТИЧЕСКИ ВАЖНО: Разрешает браузеру обмениваться куками и заголовками сессий
+  },
+  allowEIO3: true // Дополнительная совместимость протоколов сокетов
 });
+
 
 app.use(cors({
   origin: function (origin, callback) {
