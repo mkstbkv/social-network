@@ -3,6 +3,8 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { createServer } from 'http'; // НОВОЕ
+import { Server } from 'socket.io'; // НОВОЕ
 
 import pool from './config/db.js'; 
 
@@ -19,12 +21,21 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
+const httpServer = createServer(app); // Создаем HTTP сервер для сокетов
 
 const allowedOrigins = [
-  'https://social-network-app-cymb.onrender.com',
+  'https://onrender.com',
   'http://localhost:5173',
   'http://localhost:3000'
 ];
+
+// Инициализируем Socket.io с поддержкой CORS
+const io = new Server(httpServer, {
+  cors: {
+    origin: allowedOrigins,
+    methods: ['GET', 'POST']
+  }
+});
 
 app.use(cors({
   origin: function (origin, callback) {
@@ -145,14 +156,67 @@ app.use('/api/posts', postRoutes);
 app.use('/api/comments', commentRoutes);
 app.use('/api/follows', followRoutes);
 app.use('/api/notifications', notificationRoutes);
-// ВЕРНУЛИ ПОДКЛЮЧЕНИЕ РОУТОВ СООБЩЕНИЙ В СИСТЕМУ EXPRESS!
 app.use('/api/messages', messageRoutes); 
 
 app.get('/', (req, res) => {
   res.send('API бэкенда успешно работает в облаке Render!');
 });
 
+// Хранилище активных сокет-сессий в оперативной памяти сервера
+// Ключ: ID пользователя, Значение: ID сокета
+const onlineUsers = new Map();
+
+io.on('connection', (socket) => {
+  // 1. Юзер зашел в сеть: регистрируем его ID
+  socket.on('register_user', (userId) => {
+    if (!userId) return;
+    onlineUsers.set(userId.toString(), socket.id);
+    // Рассылаем всем статус, что этот пользователь зашел в сеть
+    io.emit('update_online_list', Array.from(onlineUsers.keys()));
+  });
+
+  // 2. Юзер печатает сообщение определенному собеседнику
+  socket.on('typing_start', ({ senderId, receiverId }) => {
+    const receiverSocketId = onlineUsers.get(receiverId?.toString());
+    if (receiverSocketId) {
+      socket.to(receiverSocketId).emit('typing_receive', { senderId });
+    }
+  });
+
+  // 3. Юзер перестал печатать
+  socket.on('typing_stop', ({ senderId, receiverId }) => {
+    const receiverSocketId = onlineUsers.get(receiverId?.toString());
+    if (receiverSocketId) {
+      socket.to(receiverSocketId).emit('typing_clear', { senderId });
+    }
+  });
+
+  // 4. Моментальное уведомление о новом сообщении
+  socket.on('new_message_sent', ({ receiverId }) => {
+    const receiverSocketId = onlineUsers.get(receiverId?.toString());
+    if (receiverSocketId) {
+      io.to(receiverSocketId).emit('refresh_unread_counters');
+    }
+  });
+
+  // 5. Юзер закрыл вкладку или отключился
+  socket.on('disconnect', () => {
+    let disconnectedUserId = null;
+    for (let [userId, socketId] of onlineUsers.entries()) {
+      if (socketId === socket.id) {
+        disconnectedUserId = userId;
+        break;
+      }
+    }
+    if (disconnectedUserId) {
+      onlineUsers.delete(disconnectedUserId);
+      io.emit('update_online_list', Array.from(onlineUsers.keys()));
+    }
+  });
+});
+
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, '0.0.0.0', () => {
+// ИСПРАВЛЕНО: Запускаем httpServer вместо app, чтобы сокеты работали в интернете!
+httpServer.listen(PORT, '0.0.0.0', () => {
   console.log(`Сервер успешно запущен на порту ${PORT}`);
 });

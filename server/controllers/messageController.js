@@ -121,3 +121,48 @@ export const deleteMessage = async (req, res) => {
     res.status(500).json({ error: 'Ошибка сервера' });
   }
 };
+
+// Получить количество непрочитанных сообщений для текущего пользователя
+export const getUnreadCounters = async (req, res) => {
+  try {
+    const currentUserId = req.user.id;
+
+    // 1. Суммарный счетчик для хедера
+    const totalResult = await pool.query(
+      'SELECT COUNT(*) FROM messages WHERE receiver_id = $1 AND is_read = false',
+      [currentUserId]
+    );
+
+    // 2. Счетчики в разрезе каждого отправителя для левого списка
+    const listResult = await pool.query(
+      'SELECT sender_id, COUNT(*) as count FROM messages WHERE receiver_id = $1 AND is_read = false GROUP BY sender_id',
+      [currentUserId]
+    );
+
+    res.json({
+      total: parseInt(totalResult.rows[0].count || 0),
+      bySender: listResult.rows // Массив объектов [{sender_id: 1, count: 2}]
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+};
+
+// Отметить сообщения конкретного диалога как прочитанные
+export const markAsRead = async (req, res) => {
+  try {
+    const currentUserId = req.user.id;
+    const senderId = req.params.senderId;
+
+    await pool.query(
+      'UPDATE messages SET is_read = true WHERE receiver_id = $1 AND sender_id = $2 AND is_read = false',
+      [currentUserId, senderId]
+    );
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+};
