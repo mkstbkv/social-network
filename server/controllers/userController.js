@@ -258,3 +258,18 @@ export const getUserByUsername = async (req, res) => {
   }
 };
 
+// Получить список всех пользователей системы для мессенджера
+export const getAllUsers = async (req, res) => {
+  try {
+    const currentUserId = req.user.id;
+    // Вытаскиваем всех, кроме самого себя, чтобы разгрузить фильтрацию на фронте
+    const result = await pool.query(
+      'SELECT id, username, avatar_url, bio FROM users WHERE id != $1 ORDER BY username ASC',
+      [currentUserId]
+    );
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Ошибка getAllUsers:', error);
+    res.status(500).json({ error: 'Ошибка сервера при получении списка пользователей' });
+  }
+};

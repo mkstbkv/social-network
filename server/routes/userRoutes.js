@@ -11,6 +11,7 @@ import {
   updateAvatar,
   getUserFollowers,
   getUserFollowing,
+  getAllUsers,
   getUserByUsername // ИСПРАВЛЕНО: Теперь функция импортирована!
 } from '../controllers/userController.js';
 import { verifyToken } from '../middleware/auth.js';
@@ -51,5 +52,7 @@ router.get('/:id/following', verifyToken, getUserFollowing);
 
 // 4. Динамический роут профиля (СТРОГО В САМЫЙ КОНЕЦ)
 router.get('/:id', verifyToken, getUserProfileById);
+
+router.get('/', verifyToken, getAllUsers);
 
 export default router;

@@ -33,17 +33,26 @@ const Messages: React.FC<MessagesProps> = ({ token, currentUserId }) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Загружаем список всех пользователей для чата
+   // ИСПРАВЛЕНО: Запрашиваем всех пользователей без пустых параметров ?query=
   useEffect(() => {
-    fetch(API_URL + '/api/users/search?query=', {
+    fetch(API_URL + '/api/users', {
       headers: { 'Authorization': 'Bearer ' + token }
     })
-      .then((res) => res.json())
+      .then((res) => {
+        if (!res.ok) throw new Error('Ошибка загрузки пользователей с сервера');
+        return res.json();
+      })
       .then((data) => {
-        const filtered = Array.isArray(data) ? data.filter((u: any) => u.id.toString() !== currentUserId.toString()) : [];
+        // Если бэкенд возвращает объект { users: [...] }, вытаскиваем его, иначе берем сам массив
+        const usersArray = Array.isArray(data) ? data : (data.users && Array.isArray(data.users) ? data.users : []);
+        
+        // Фильтруем, чтобы текущий авторизованный юзер не видел сам себя в списке чатов
+        const filtered = usersArray.filter((u: any) => u.id.toString() !== currentUserId.toString());
         setUsers(filtered);
       })
-      .catch((err) => console.error('Ошибка загрузки пользователей:', err));
+      .catch((err) => console.error('Критическая ошибка мессенджера:', err));
   }, [token, currentUserId]);
+
 
   // Отслеживаем переход по кнопке "Написать" из профиля
   useEffect(() => {
