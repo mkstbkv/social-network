@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Routes, Route, Navigate, useNavigate, Link } from 'react-router';
-import { io } from 'socket.io-client'; // НОВОЕ
+import { io } from 'socket.io-client';
 import { Feed } from './pages/Feed';
 import { Profile } from './pages/Profile';
 import { UserPage } from './pages/UserPage';
@@ -10,19 +10,15 @@ import Messages from './pages/Messages';
 import { NotificationDropdown } from './components/NotificationDropdown';
 import { API_URL } from './api';
 
-// Инициализируем глобальный инстанс сокета для всего приложения
 export const socket = io(API_URL, { autoConnect: false });
 
 export default function App() {
   const [token, setToken] = useState<string | null>(localStorage.getItem('token'));
   const [user, setUser] = useState<any>(null);
   const [checkingAuth, setCheckingAuth] = useState<boolean>(true);
-  
-  // Счётчик непрочитанных сообщений для хедера
   const [totalUnreadMessages, setTotalUnreadMessages] = useState<number>(0);
   const navigate = useNavigate();
 
-  // Функция для запроса количества непрочитанных сообщений с сервера
   const fetchUnreadTotal = (authToken: string) => {
     fetch(API_URL + '/api/messages/unread/counters', {
       headers: { 'Authorization': 'Bearer ' + authToken }
@@ -52,14 +48,13 @@ export default function App() {
     setCheckingAuth(false);
   }, []);
 
-  // Управление сокет-соединением при входе пользователя в сеть
   useEffect(() => {
     if (token && user?.id) {
       socket.connect();
       socket.emit('register_user', user.id);
       fetchUnreadTotal(token);
 
-      // В реальном времени слушаем команду бэкенда обновить счётчики
+      // ИСПРАВЛЕНО: Теперь хедер мгновенно реагирует на сокет-событие обновления
       socket.on('refresh_unread_counters', () => {
         fetchUnreadTotal(token);
       });
@@ -109,11 +104,10 @@ export default function App() {
             <div className="flex items-center gap-4">
               <Link to="/" className="text-sm font-bold text-slate-600 hover:text-blue-600 transition-colors">Лента</Link>
               
-              {/* ИСПРАВЛЕНО: Ссылка "Сообщения" теперь выводит красный круглый счётчик */}
               <Link to="/messages" className="text-sm font-bold text-slate-600 hover:text-blue-600 transition-colors flex items-center gap-1.5 relative">
                 <span>💬</span> Сообщения
                 {totalUnreadMessages > 0 && (
-                  <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[9px] font-black text-white shadow-sm shadow-rose-200">
+                  <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[9px] font-black text-white shadow-sm shadow-rose-200 animate-pulse">
                     {totalUnreadMessages}
                   </span>
                 )}
@@ -150,7 +144,6 @@ export default function App() {
           <Route path="/profile" element={token && user ? <Profile token={token} user={user} onUserUpdate={handleUserUpdate} /> : <Navigate to="/login" replace />} />
           <Route path="/user/:id" element={token && user ? <UserPage token={token} currentUserId={user.id} /> : <Navigate to="/login" replace />} />
           
-          {/* Передаём функцию обновления глобального счётчика сообщений внутрь страницы чатов */}
           <Route path="/messages" element={token && user ? <Messages token={token} currentUserId={user.id} onCounterRefresh={() => fetchUnreadTotal(token)} /> : <Navigate to="/login" replace />} />
           
           <Route path="/login" element={!token ? <Login onLoginSuccess={handleLoginSuccess} /> : <Navigate to="/" replace />} />

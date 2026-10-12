@@ -38,10 +38,14 @@ export default function Messages({ token, currentUserId, onCounterRefresh }: Mes
   const [onlineUserIds, setOnlineUserIds] = useState<string[]>([]);
   const [typingUsers, setTypingUsers] = useState<number[]>([]);
   const [unreadCounters, setUnreadCounters] = useState<any>({});
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const firstUnreadRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<any>(null);
+  const emojiPickerRef = useRef<HTMLDivElement>(null);
+
+  const popularEmojis = ['😀', '😂', '🔥', '👍', '❤️', '🙌', '🎉', '🚀', '👀', '💯', '🤔', '😎'];
 
   const fetchUnreadCounters = () => {
     fetch(API_URL + '/api/messages/unread/counters', {
@@ -59,12 +63,10 @@ export default function Messages({ token, currentUserId, onCounterRefresh }: Mes
       })
       .catch((err) => console.error(err));
   };
-
-  // УМНАЯ ФУНКЦИЯ: Загружает либо активные чаты, либо ищет по всей базе
   const loadUsersList = (query: string) => {
     const endpoint = query.trim() === '' 
-      ? API_URL + '/api/messages/active/list' // Если пусто — только существующие чаты
-      : API_URL + '/api/users/search?query=' + encodeURIComponent(query); // Если пишем — глобальный поиск
+      ? API_URL + '/api/messages/active/list'
+      : API_URL + '/api/users/search?query=' + encodeURIComponent(query);
 
     fetch(endpoint, {
       headers: { 'Authorization': 'Bearer ' + token }
@@ -76,7 +78,7 @@ export default function Messages({ token, currentUserId, onCounterRefresh }: Mes
         setUsers(filtered);
         fetchUnreadCounters();
       })
-      .catch((err) => console.error('Ошибка загрузки пользователей:', err));
+      .catch((err) => console.error(err));
   };
 
   useEffect(() => {
@@ -101,16 +103,25 @@ export default function Messages({ token, currentUserId, onCounterRefresh }: Mes
     socket.on('refresh_unread_counters', () => {
       fetchUnreadCounters();
       onCounterRefresh();
-      if (searchQuery.trim() === '') loadUsersList(''); // Обновляем список активных чатов, если пришло новое сообщение
+      fetchMessages();
+      if (searchQuery.trim() === '') loadUsersList('');
     });
+
+    const handleClickOutside = (e: MouseEvent) => {
+      if (emojiPickerRef.current && !emojiPickerRef.current.contains(e.target as Node)) {
+        setShowEmojiPicker(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
 
     return () => {
       socket.off('update_online_list');
       socket.off('typing_receive');
       socket.off('typing_clear');
       socket.off('refresh_unread_counters');
+      document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [currentUserId, searchQuery]);
+  }, [currentUserId, searchQuery, activeUser]);
 
   useEffect(() => {
     if (targetChatUserId) {
@@ -147,7 +158,7 @@ export default function Messages({ token, currentUserId, onCounterRefresh }: Mes
     }).then(() => {
       fetchUnreadCounters();
       onCounterRefresh();
-      socket.emit('new_message_sent', { receiverId: activeUser.id });
+      socket.emit('refresh_unread_counters', { receiverId: activeUser.id });
     });
 
     const interval = setInterval(fetchMessages, 4000);
@@ -181,6 +192,11 @@ export default function Messages({ token, currentUserId, onCounterRefresh }: Mes
     }, 1500);
   };
 
+  const handleAddEmoji = (emoji: string) => {
+    setNewMessage(prev => prev + emoji);
+    setShowEmojiPicker(false);
+  };
+
   const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newMessage.trim() || !activeUser) return;
@@ -200,8 +216,9 @@ export default function Messages({ token, currentUserId, onCounterRefresh }: Mes
       .then(() => {
         setNewMessage('');
         fetchMessages();
-        loadUsersList(searchQuery); // Синхронизируем левую панель, чтобы новый чат закрепился в списке активных
-        socket.emit('new_message_sent', { receiverId: activeUser.id });
+        loadUsersList(searchQuery);
+        onCounterRefresh();
+        socket.emit('refresh_unread_counters', { receiverId: activeUser.id });
       })
       .catch((err) => console.error(err));
   };
@@ -213,14 +230,13 @@ export default function Messages({ token, currentUserId, onCounterRefresh }: Mes
     setSearchParams(newParams);
   };
 
-  // ИСПРАВЛЕНО: Функция закрытия активного окна чата
   const handleCloseChat = () => {
     setActiveUser(null);
     setMessages([]);
     const newParams = new URLSearchParams(searchParams);
     newParams.delete('chat');
     setSearchParams(newParams);
-    loadUsersList(searchQuery); // Мгновенно обновляем список диалогов
+    loadUsersList(searchQuery);
   };
   const firstUnreadIncomingIndex = messages.findIndex(
     m => !m.is_read && m.sender_id.toString() !== currentUserId.toString()
@@ -233,9 +249,8 @@ export default function Messages({ token, currentUserId, onCounterRefresh }: Mes
         <div className="p-4 border-b border-slate-200 bg-white flex flex-col gap-2.5">
           <div>
             <h3 className="text-base font-black text-slate-900 tracking-tight">Мессенджер</h3>
-            {/* Динамическая подсказка */}
             <p className="text-[11px] text-slate-400 mt-0.5">
-              {searchQuery.trim() === '' ? 'Ваши активные переписки' : 'Результаты глобального поиска'}
+              {searchQuery.trim() === '' ? 'Ваши active переписки' : 'Результаты глобального поиска'}
             </p>
           </div>
           <div className="relative">
@@ -294,7 +309,6 @@ export default function Messages({ token, currentUserId, onCounterRefresh }: Mes
       <section className="flex-1 flex flex-col bg-white">
         {activeUser ? (
           <>
-            {/* Шапка чата с кнопкой закрытия */}
             <div className="p-4 border-b border-slate-200 flex items-center justify-between bg-slate-50/20">
               <div className="flex items-center gap-3">
                 <div className="relative h-9 w-9 rounded-full overflow-hidden shrink-0 border border-slate-200 bg-slate-100 flex items-center justify-center font-bold text-slate-500 text-xs">
@@ -308,12 +322,7 @@ export default function Messages({ token, currentUserId, onCounterRefresh }: Mes
                 </div>
               </div>
 
-              {/* ИСПРАВЛЕНО: Кнопка закрытия открытого диалога справа сверху */}
-              <button 
-                onClick={handleCloseChat}
-                className="rounded-xl p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-all font-bold text-sm focus:outline-none"
-                title="Закрыть диалог"
-              >
+              <button onClick={handleCloseChat} className="rounded-xl p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-all font-bold text-sm focus:outline-none">
                 ✕ Закрыть
               </button>
             </div>
@@ -336,14 +345,22 @@ export default function Messages({ token, currentUserId, onCounterRefresh }: Mes
                     )}
 
                     <div className={`flex flex-col max-w-[75%] ${isMe ? 'ml-auto items-end' : 'mr-auto items-start'}`}>
-                      <div className={`px-4 py-2.5 rounded-2xl text-sm leading-relaxed shadow-sm ${
+                      <div className={`px-4 py-2.5 rounded-2xl text-sm leading-relaxed shadow-sm relative ${
                         isMe ? 'bg-blue-600 text-white rounded-br-none' : 'bg-slate-100 text-slate-800 rounded-bl-none border border-slate-200/50'
                       }`}>
                         {msg.content}
                       </div>
-                      <span className="text-[9px] text-slate-400 mt-1 px-1">
-                        {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                      </span>
+                      
+                      <div className="flex items-center gap-1.5 mt-1 px-1 select-none">
+                        <span className="text-[9px] text-slate-400">
+                          {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                        {isMe && (
+                          <span className={`text-xs font-black leading-none ${msg.is_read ? 'text-blue-500' : 'text-slate-300'}`}>
+                            {msg.is_read ? '✓✓' : '✓'}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </React.Fragment>
                 );
@@ -356,7 +373,22 @@ export default function Messages({ token, currentUserId, onCounterRefresh }: Mes
               <div ref={messagesEndRef} />
             </div>
 
-            <form onSubmit={handleSendMessage} className="p-4 border-t border-slate-200 bg-white flex gap-2">
+            <form onSubmit={handleSendMessage} className="p-4 border-t border-slate-200 bg-white flex gap-2 relative">
+              <div className="relative" ref={emojiPickerRef}>
+                <button type="button" onClick={() => setShowEmojiPicker(!showEmojiPicker)} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-base hover:bg-slate-100 transition-colors focus:outline-none">
+                  😀
+                </button>
+                {showEmojiPicker && (
+                  <div className="absolute bottom-full left-0 z-50 mb-2 grid grid-cols-4 gap-1 rounded-xl border border-slate-100 bg-white p-2 shadow-2xl w-40">
+                    {popularEmojis.map(emoji => (
+                      <button key={emoji} type="button" onClick={() => handleAddEmoji(emoji)} className="p-1.5 hover:bg-slate-50 rounded-lg text-lg text-center transition-transform active:scale-125 focus:outline-none">
+                        {emoji}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
               <input type="text" value={newMessage} onChange={(e) => handleInputChange(e.target.value)} placeholder="Напишите личное сообщение..." className="flex-1 rounded-xl border border-slate-200 px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none" autoComplete="off" />
               <button type="submit" className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition-colors shadow-sm active:scale-95">Отправить</button>
             </form>
