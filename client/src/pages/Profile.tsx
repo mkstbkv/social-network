@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router';
 import { PostCard } from '../components/PostCard';
 import { FollowModal } from '../components/FollowModal';
+import { API_URL } from '../api'; // ИМПОРТИРУЕМ НАШ НАДЁЖНЫЙ URL
 
 interface Post {
   id: number;
@@ -47,29 +48,25 @@ export const Profile: React.FC<ProfileProps> = ({ token, user, onUserUpdate }) =
   const fetchUserPosts = () => {
     if (!currentUser?.id) return;
     setLoading(true);
-    fetch('/api/posts/user/' + currentUser.id, {
+    fetch(API_URL + '/api/posts/user/' + currentUser.id, {
       headers: { 'Authorization': 'Bearer ' + token }
     })
       .then((res) => res.json())
       .then((data) => {
         setPosts(Array.isArray(data) ? data : []);
-        setLoading(false); // Сначала сохраняем посты, и только потом выключаем loading!
+        setLoading(false);
       })
       .catch(() => setLoading(false));
   };
 
-  // Перезапрашиваем посты принудительно, если targetPostId в URL изменился
   useEffect(() => {
     fetchUserPosts();
     if (currentUser?.bio) setBio(currentUser.bio);
   }, [currentUser?.id, currentUser?.bio, targetPostId]);
 
-  // ГАРАНТИРОВАННЫЙ СКРОЛЛ: Следит за флагами loading и posts
   useEffect(() => {
-    // Скроллим ТОЛЬКО тогда, когда загрузка завершена и посты физически отрисовались в DOM
     if (targetPostId && posts.length > 0 && !loading) {
-      // Ставим небольшую задержку в 200мс, чтобы браузер успел отобразить карточки
-      const scrollTimer = setTimeout(() => {
+      setTimeout(() => {
         const el = document.getElementById('profile-post-node-' + targetPostId);
         if (el) {
           el.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -77,41 +74,42 @@ export const Profile: React.FC<ProfileProps> = ({ token, user, onUserUpdate }) =
           
           setTimeout(() => {
             if (el) el.classList.remove('border-blue-500', 'ring-4', 'ring-blue-100');
-          }, 2500);
+          }, 2000);
 
-          // Стираем метки из URL, фиксируя фокус
           const newParams = new URLSearchParams(searchParams);
           newParams.delete('post');
           setSearchParams(newParams, { replace: true });
         }
-      }, 200);
-
-      return () => clearTimeout(scrollTimer);
+      }, 450);
     }
   }, [targetPostId, posts, loading]);
 
+  // ИСПРАВЛЕНО: Теперь списки подписок в твоем профиле летят на облачный API_URL!
   const openFollowModal = (type: 'followers' | 'following') => {
     if (!currentUser?.id) return;
     setModalTitle(type === 'followers' ? 'Подписчики' : 'Подписки');
-    fetch('http://localhost:5000/api/users/' + currentUser.id + '/' + type, {
+    fetch(API_URL + '/api/users/' + currentUser.id + '/' + type, {
       headers: { 'Authorization': 'Bearer ' + token }
     })
-      .then((res) => res.json())
+      .then((res) => {
+        if (!res.ok) throw new Error('Ошибка сервера при загрузке подписок');
+        return res.json();
+      })
       .then((data) => {
         setModalUsers(Array.isArray(data) ? data : []);
         setModalOpen(true);
-      });
+      })
+      .catch((err) => console.error(err));
   };
 
-    const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    // Вытаскиваем строго первый файл по индексу, а не весь FileList
+  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files && e.target.files.length > 0 ? e.target.files[0] : null;
     if (!file) return;
 
     const formData = new FormData();
-    formData.append('avatar', file); // Теперь TypeScript видит Blob/File и пропускает сборку!
+    formData.append('avatar', file);
 
-    fetch('http://localhost:5000/api/users/avatar', {
+    fetch(API_URL + '/api/users/avatar', {
       method: 'POST',
       headers: { 'Authorization': 'Bearer ' + token },
       body: formData
@@ -125,10 +123,9 @@ export const Profile: React.FC<ProfileProps> = ({ token, user, onUserUpdate }) =
       .catch((err) => console.error('Ошибка загрузки аватара:', err));
   };
 
-
   const handleUpdateBio = (e: React.FormEvent) => {
     e.preventDefault();
-    fetch('/api/users/profile', {
+    fetch(API_URL + '/api/users/profile', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
       body: JSON.stringify({ bio })
@@ -148,7 +145,7 @@ export const Profile: React.FC<ProfileProps> = ({ token, user, onUserUpdate }) =
 
   const handleDeletePost = (postId: number) => {
     if (!window.confirm('Вы уверены?')) return;
-    fetch('/api/posts/' + postId, {
+    fetch(API_URL + '/api/posts/' + postId, {
       method: 'DELETE',
       headers: { 'Authorization': 'Bearer ' + token }
     }).then(() => fetchUserPosts());
@@ -160,7 +157,7 @@ export const Profile: React.FC<ProfileProps> = ({ token, user, onUserUpdate }) =
       <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm mb-6">
         <div className="flex items-center gap-4">
           <div onClick={() => fileInputRef.current?.click()} className="group relative flex h-20 w-20 shrink-0 cursor-pointer items-center justify-center rounded-full border border-slate-200 bg-blue-50 overflow-hidden text-2xl font-black text-blue-600 transition-all hover:opacity-90">
-            {currentUser?.avatar_url ? <img src={'http://localhost:5000' + currentUser.avatar_url} alt="Аватар" className="h-full w-full object-cover" /> : currentUser?.username ? currentUser.username.toUpperCase().substring(0, 2) : 'US'}
+            {currentUser?.avatar_url ? <img src={API_URL + currentUser.avatar_url} alt="Аватар" className="h-full w-full object-cover" /> : (currentUser?.username ? currentUser.username.toUpperCase().substring(0, 2) : 'US')}
             <div className="absolute inset-0 flex items-center justify-center bg-black/40 text-[10px] text-white font-bold opacity-0 transition-opacity group-hover:opacity-100">Сменить</div>
           </div>
           <input type="file" accept="image/*" ref={fileInputRef} onChange={handleAvatarChange} className="hidden" />
