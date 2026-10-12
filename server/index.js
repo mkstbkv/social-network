@@ -20,10 +20,27 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 
-// 2. ИСПРАВЛЕНО: Безопасный CORS для твоего живого Static Site на Render
+// 2. ИСПРАВЛЕНО: Пуленепробиваемый CORS для локальной разработки и облачного деплоя
+const allowedOrigins = [
+  'https://social-network-app-cymb.onrender.com', // Твой живой фронтенд
+  'http://localhost:5173',                       // Локальный фронтенд (на всякий случай)
+  'http://localhost:3000'
+];
+
 app.use(cors({
-  origin: 'https://onrender.com',
-  credentials: true
+  origin: function (origin, callback) {
+    // Разрешаем запросы без origin (например, мобильные приложения, Postman или curl)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.indexOf(origin) !== -1 || origin.endsWith('.onrender.com')) {
+      return callback(null, true);
+    } else {
+      return callback(new Error('Блокировка CORS: данный домен не имеет доступа к API'));
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
 app.use(express.json());
