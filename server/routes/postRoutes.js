@@ -11,40 +11,37 @@ const storage = multer.diskStorage({
     cb(null, 'uploads/');
   },
   filename: (req, file, cb) => {
-    // Сохраняем оригинальное расширение файла с телефона
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
     cb(null, uniqueSuffix + path.extname(file.originalname));
   }
 });
 
 const fileFilter = (req, file, cb) => {
-  // ИСПРАВЛЕНО: Расширили список мобильных форматов, включая .heic, .heif и сырые файлы камер
-  const allowedExtensions = ['.jpg', '.jpeg', '.png', '.webp', '.gif', '.heic', '.heif'];
+  // ИСПРАВЛЕНО: Добавили профессиональный формат .dng в список разрешенных
+  const allowedExtensions = ['.jpg', '.jpeg', '.png', '.webp', '.gif', '.heic', '.heif', '.dng'];
   const ext = path.extname(file.originalname).toLowerCase();
 
-  // Одобряем файл, если расширение подходит или MIME-тип на сервере определяется как изображение
-  if (allowedExtensions.includes(ext) || file.mimetype.startsWith('image/')) {
+  if (allowedExtensions.includes(ext) || file.mimetype.startsWith('image/') || file.mimetype === 'image/x-adobe-dng') {
     cb(null, true);
   } else {
-    cb(new Error('Выбранный файл не поддерживается. Пожалуйста, выберите изображение в формате JPG, PNG, WEBP, GIF или HEIC.'), false);
+    cb(new Error('Формат файла не поддерживается. Разрешены JPG, PNG, WEBP, GIF, HEIC и DNG RAW.'), false);
   }
 };
 
 const upload = multer({ 
   storage: storage,
   fileFilter: fileFilter,
-  limits: { fileSize: 50 * 1024 * 1024 } // ИСПРАВЛЕНО: Увеличили лимит до 50 МБ под тяжелые фотографии
+  limits: { fileSize: 50 * 1024 * 1024 } // 50 МБ
 });
 
-// Безопасный перехват ошибок Multer с понятными ответами
 const uploadWrapper = (req, res, next) => {
   upload.single('image')(req, res, (err) => {
     if (err instanceof multer.MulterError) {
+      // ИСПРАВЛЕНО: Теперь бэкенд возвращает четкую ошибку на русском языке, если файл больше 50 МБ
       if (err.code === 'LIMIT_FILE_SIZE') {
-        // ИСПРАВЛЕНО: Текст ошибки теперь синхронизирован с новым лимитом в 50 МБ
-        return res.status(400).json({ error: 'Файл слишком большой. Пожалуйста, выберите изображение размером менее 50 МБ.' });
+        return res.status(400).json({ error: 'Размер фотографии превышает 50 МБ! Пожалуйста, выберите файл меньшего размера.' });
       }
-      return res.status(400).json({ error: 'Произошла ошибка при загрузке файла. Попробуйте выбрать другое изображение.' });
+      return res.status(400).json({ error: 'Ошибка загрузки медиафайла. Попробуйте выбрать другое изображение.' });
     } else if (err) {
       return res.status(400).json({ error: err.message });
     }

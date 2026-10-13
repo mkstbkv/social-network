@@ -27,21 +27,25 @@ interface ProfileProps {
   token: string;
   user: any;
   onUserUpdate: (updatedUser: any) => void;
+  globalSubmitting: boolean;
+  onGlobalCreatePost: (content: string, imageFile: File | null, callback: () => void) => void;
 }
 
-export const Profile: React.FC<ProfileProps> = ({ token, user, onUserUpdate }) => {
+export const Profile: React.FC<ProfileProps> = ({ 
+  token, 
+  user, 
+  onUserUpdate, 
+  globalSubmitting, 
+  onGlobalCreatePost 
+}) => {
   const [posts, setPosts] = useState<Post[]>([]);
   const [bio, setBio] = useState<string>('');
   const [isEditing, setIsEditing] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Стейты для безопасного создания нового поста прямо из профиля
   const [newPostContent, setNewMessageContent] = useState('');
   const [newPostImage, setNewPostImage] = useState<File | null>(null);
-  
-  // ЗАЩИТА: Блокирует повторные клики во время долгой загрузки в облако
-  const [submitting, setSubmitting] = useState<boolean>(false);
 
   const [modalOpen, setModalOpen] = useState<boolean>(false);
   const [modalTitle, setModalTitle] = useState<string>('');
@@ -87,37 +91,17 @@ export const Profile: React.FC<ProfileProps> = ({ token, user, onUserUpdate }) =
     fetchProfileData();
   }, [currentUser?.id, targetPostId]);
 
-  // Логика отправки нового поста из профиля с защитой от повторных нажатий
-  const handleCreatePost = (e: React.FormEvent) => {
+  const handleLocalSubmitPost = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newPostContent.trim() || submitting) return;
+    if (!newPostContent.trim() || globalSubmitting) return;
 
-    setSubmitting(true); // Включаем режим загрузки, кнопка становится серой
-
-    const formData = new FormData();
-    formData.append('content', newPostContent.trim());
-    if (newPostImage) formData.append('image', newPostImage);
-
-    fetch(API_URL + '/api/posts', {
-      method: 'POST',
-      headers: { 'Authorization': 'Bearer ' + token },
-      body: formData,
-    })
-      .then((res) => {
-        if (!res.ok) throw new Error('Ошибка сервера при публикации поста');
-        return res.json();
-      })
-      .then(() => {
-        setNewMessageContent('');
-        setNewPostImage(null);
-        const fileInput = document.getElementById('profile-file-input') as HTMLInputElement;
-        if (fileInput) fileInput.value = '';
-        fetchUserPosts(); // Обновляем личную ленту публикаций
-      })
-      .catch((err) => alert(err.message))
-      .finally(() => {
-        setSubmitting(false); // Выключаем режим загрузки, разблокируем интерфейс
-      });
+    onGlobalCreatePost(newPostContent, newPostImage, () => {
+      setNewMessageContent('');
+      setNewPostImage(null);
+      const fileInput = document.getElementById('profile-file-input') as HTMLInputElement;
+      if (fileInput) fileInput.value = '';
+      fetchUserPosts();
+    });
   };
 
   const openFollowModal = (type: 'followers' | 'following') => {
@@ -135,11 +119,12 @@ export const Profile: React.FC<ProfileProps> = ({ token, user, onUserUpdate }) =
   };
 
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFile = e.target.files && e.target.files.length > 0 ? e.target.files[0] : null;
-    if (!selectedFile) return;
+    // ИСПРАВЛЕНО 2: Берём строго первый File по индексу [0] вместо FileList
+    const file = e.target.files && e.target.files.length > 0 ? e.target.files[0] : null;
+    if (!file) return;
 
     const formData = new FormData();
-    formData.append('avatar', selectedFile);
+    formData.append('avatar', file);
 
     fetch(API_URL + '/api/users/avatar', {
       method: 'POST',
@@ -186,9 +171,8 @@ export const Profile: React.FC<ProfileProps> = ({ token, user, onUserUpdate }) =
   };
 
   if (!currentUser) return <p className="text-center mt-8 text-slate-400 text-sm">Загрузка данных...</p>;
-  return (
+   return (
     <div className="mx-auto w-full max-w-2xl transition-all">
-      {/* Карточка профиля */}
       <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-6 shadow-sm mb-4 sm:mb-6">
         <div className="flex flex-col sm:flex-row items-center gap-4 text-center sm:text-left">
           <div onClick={() => fileInputRef.current?.click()} className="group relative flex h-20 w-20 shrink-0 cursor-pointer items-center justify-center rounded-full border border-slate-200 bg-blue-50 overflow-hidden text-2xl font-black text-blue-600 transition-all hover:opacity-90 shadow-inner">
@@ -242,30 +226,30 @@ export const Profile: React.FC<ProfileProps> = ({ token, user, onUserUpdate }) =
         </div>
       </div>
 
-      {/* ФОРМА СОЗДАНИЯ ПОСТА: Перенесена по ТЗ строго в Личный Профиль пользователя */}
+      {/* ФОРМА СОЗДАНИЯ ПОСТА */}
       <div className="mb-4 sm:mb-6 rounded-2xl border border-slate-200 bg-white p-3 sm:p-4 shadow-sm">
         <h4 className="text-xs sm:text-sm font-black text-slate-900 mb-2 uppercase tracking-wider">Создать новую публикацию</h4>
-        <form onSubmit={handleCreatePost} className="flex flex-col gap-3">
+        <form onSubmit={handleLocalSubmitPost} className="flex flex-col gap-3">
           <textarea value={newPostContent} onChange={(e) => setNewMessageContent(e.target.value)} placeholder="Что у вас нового? Расскажите подписчикам..." rows={3} className="w-full rounded-xl border border-slate-100 p-2 text-sm text-slate-800 focus:border-blue-500 focus:outline-none resize-none" />
           <div className="flex flex-col sm:flex-row sm:items-center justify-between border-t border-slate-50 pt-2 gap-2">
             <label className="flex cursor-pointer items-center justify-center sm:justify-start gap-1.5 text-xs font-bold text-slate-500 hover:text-blue-600 select-none bg-slate-50 sm:bg-transparent py-2 sm:py-0 rounded-xl border border-slate-100 sm:border-0">
               <span>🖼️</span> Добавить фото к посту
               <input id="profile-file-input" type="file" accept="image/*" onChange={(e) => {
+                // ИСПРАВЛЕНО 1: Вытаскиваем строго первый файл через [0] из коллекции
                 const selectedFile = e.target.files && e.target.files.length > 0 ? e.target.files[0] : null;
                 setNewPostImage(selectedFile);
               }} className="hidden" />
             </label>
             {newPostImage && <span className="text-[10px] text-center sm:text-left text-emerald-600 font-semibold truncate max-w-xs">Выбрано: {newPostImage.name}</span>}
             
-            {/* ИСПРАВЛЕНО: Кнопка блокируется (`disabled`) и меняет текст во время асинхронной загрузки тяжелых фото */}
             <button 
               type="submit" 
-              disabled={submitting || !newPostContent.trim()} 
+              disabled={globalSubmitting || !newPostContent.trim()} 
               className={`rounded-xl px-5 py-2 text-xs sm:text-sm font-semibold text-white shadow-sm transition-all text-center ${
-                submitting ? 'bg-slate-400 cursor-not-allowed animate-pulse' : 'bg-blue-600 hover:bg-blue-700 active:scale-95'
+                globalSubmitting ? 'bg-slate-400 cursor-not-allowed animate-pulse' : 'bg-blue-600 hover:bg-blue-700 active:scale-95'
               }`}
             >
-              {submitting ? 'Загрузка контента...' : 'Опубликовать'}
+              {globalSubmitting ? 'Загрузка медиа...' : 'Опубликовать'}
             </button>
           </div>
         </form>

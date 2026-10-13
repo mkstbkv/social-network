@@ -18,6 +18,8 @@ export default function App() {
   const [checkingAuth, setCheckingAuth] = useState<boolean>(true);
   const [totalUnreadMessages, setTotalUnreadMessages] = useState<number>(0);
   
+  // ИСПРАВЛЕНО: Глобальный флаг загрузки публикации, который не исчезает при переходах между страницами
+  const [globalSubmitting, setGlobalSubmitting] = useState<boolean>(false);
   const [showUserMenu, setShowUserMenu] = useState<boolean>(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
   
@@ -79,6 +81,38 @@ export default function App() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  // ИСПРАВЛЕНО: Глобальная функция создания публикации
+  const handleGlobalCreatePost = async (content: string, imageFile: File | null, callback: () => void) => {
+    if (!content.trim() || globalSubmitting || !token) return;
+
+    setGlobalSubmitting(true);
+
+    const formData = new FormData();
+    formData.append('content', content.trim());
+    if (imageFile) formData.append('image', imageFile);
+
+    try {
+      const res = await fetch(API_URL + '/api/posts', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + token },
+        body: formData,
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        // Выводим четкий текст ошибки с бэкенда (например, про лимит 50 МБ)
+        throw new Error(data.error || 'Ошибка при публикации поста');
+      }
+
+      callback(); // Очищаем форму в профиле при успехе
+    } catch (err: any) {
+      alert(err.message);
+    } finally {
+      setGlobalSubmitting(false); // Снимаем глобальную блокировку
+    }
+  };
+
   const handleLoginSuccess = (newToken: string, newUser: any) => {
     localStorage.setItem('token', newToken);
     localStorage.setItem('user', JSON.stringify(newUser));
@@ -109,17 +143,19 @@ export default function App() {
     <div className="min-h-screen bg-slate-50 text-slate-800 antialiased font-sans">
       {token && user && (
         <header className="sticky top-0 z-40 w-full border-b border-slate-200/80 bg-white/80 backdrop-blur-md">
+          
+          {/* ИСПРАВЛЕНО: Глобальный индикатор загрузки поверх шапки сайта */}
+          {globalSubmitting && (
+            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-500 via-indigo-500 to-emerald-500 animate-pulse z-50" />
+          )}
+
           <div className="mx-auto flex h-14 max-w-4xl items-center justify-between px-4">
-            {/* Слева: Главная кнопка-логотип (Лента убрана по ТЗ, клик ведет на главную) */}
             <Link to="/" onClick={() => setShowUserMenu(false)} className="flex items-center gap-1.5 focus:outline-none select-none active:scale-95 transition-transform">
               <span className="text-xl">⚡</span>
               <span className="text-sm font-black uppercase tracking-wider text-slate-900">Social Net</span>
             </Link>
 
-            {/* Справа: Блок мессенджера и Единое выпадающее меню */}
             <div className="flex items-center gap-2 sm:gap-4">
-              
-              {/* Ссылка "Сообщения" осталась на месте */}
               <Link to="/messages" onClick={() => setShowUserMenu(false)} className="text-sm font-bold text-slate-600 hover:text-blue-600 transition-colors flex items-center gap-1.5 relative p-2 rounded-xl hover:bg-slate-50">
                 <span>💬</span> 
                 <span className="hidden xs:inline">Сообщения</span>
@@ -132,7 +168,6 @@ export default function App() {
               
               <div className="h-4 w-[1px] bg-slate-200"></div>
 
-              {/* Объединенное выпадающее меню под одной аватаркой */}
               <div className="relative" ref={userMenuRef}>
                 <button 
                   onClick={() => setShowUserMenu(!showUserMenu)} 
@@ -153,11 +188,8 @@ export default function App() {
                   </span>
                 </button>
 
-                {/* Всплывающий оверлей меню */}
                 {showUserMenu && (
                   <div className="absolute right-0 z-50 mt-2 w-56 origin-top-right rounded-2xl border border-slate-100 bg-white p-2 shadow-2xl animate-fade-in flex flex-col gap-1">
-                    
-                    {/* Колокольчик уведомлений перенесен внутрь меню */}
                     <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-slate-50/50">
                       <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Уведомления</span>
                       <NotificationDropdown token={token} currentUserId={user.id} />
@@ -165,7 +197,6 @@ export default function App() {
 
                     <div className="h-[1px] bg-slate-50 my-1"></div>
 
-                    {/* Ссылка в Мой профиль */}
                     <Link 
                       to="/profile" 
                       onClick={() => setShowUserMenu(false)} 
@@ -174,7 +205,6 @@ export default function App() {
                       <span>👤</span> Мой профиль
                     </Link>
 
-                    {/* Кнопка Выйти */}
                     <button 
                       onClick={handleLogout} 
                       className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold text-rose-600 hover:bg-rose-50 transition-colors text-left"
@@ -187,14 +217,33 @@ export default function App() {
 
             </div>
           </div>
+          
+          {/* Информационный баннер в шапке, сообщающий о фоновом процессе загрузки постов */}
+          {globalSubmitting && (
+            <div className="w-full bg-blue-50 border-b border-blue-100 text-center py-1 text-[11px] font-bold text-blue-600 animate-pulse select-none">
+              ⏳ Публикация медиафайла в облако PostgreSQL... Вы можете свободно перемещаться по сайту.
+            </div>
+          )}
         </header>
       )}
 
-      {/* Адаптивный контейнер под экраны (на смартфонах px-2/px-4, на мониторах max-w-4xl) */}
       <main className="mx-auto w-full max-w-4xl p-2 sm:p-4 transition-all">
         <Routes>
           <Route path="/" element={token && user ? <Feed token={token} currentUserId={user.id} /> : <Navigate to="/login" replace />} />
-          <Route path="/profile" element={token && user ? <Profile token={token} user={user} onUserUpdate={handleUserUpdate} /> : <Navigate to="/login" replace />} />
+          
+          {/* Передаем параметры глобальной отправки внутрь страницы Профиля */}
+          <Route path="/profile" element={
+            token && user ? (
+              <Profile 
+                token={token} 
+                user={user} 
+                onUserUpdate={handleUserUpdate} 
+                globalSubmitting={globalSubmitting}
+                onGlobalCreatePost={handleGlobalCreatePost}
+              />
+            ) : <Navigate to="/login" replace />
+          } />
+          
           <Route path="/user/:id" element={token && user ? <UserPage token={token} currentUserId={user.id} /> : <Navigate to="/login" replace />} />
           <Route path="/messages" element={token && user ? <Messages token={token} currentUserId={user.id} onCounterRefresh={() => fetchUnreadTotal(token)} /> : <Navigate to="/login" replace />} />
           
