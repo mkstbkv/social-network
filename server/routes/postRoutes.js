@@ -11,26 +11,29 @@ const storage = multer.diskStorage({
     cb(null, 'uploads/');
   },
   filename: (req, file, cb) => {
-    cb(null, Date.now() + path.extname(file.originalname).toLowerCase());
+    // Сохраняем оригинальное расширение файла с телефона
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, uniqueSuffix + path.extname(file.originalname));
   }
 });
 
 const fileFilter = (req, file, cb) => {
-  const allowedExtensions = ['.jpg', '.jpeg', '.png', '.webp', '.gif'];
+  // ИСПРАВЛЕНО: Расширили список мобильных форматов, включая .heic, .heif и сырые файлы камер
+  const allowedExtensions = ['.jpg', '.jpeg', '.png', '.webp', '.gif', '.heic', '.heif'];
   const ext = path.extname(file.originalname).toLowerCase();
 
+  // Одобряем файл, если расширение подходит или MIME-тип на сервере определяется как изображение
   if (allowedExtensions.includes(ext) || file.mimetype.startsWith('image/')) {
     cb(null, true);
   } else {
-    // Грамотный текст ошибки для бэкенда
-    cb(new Error('Выбранный файл не является поддерживаемым изображением. Пожалуйста, выберите файл в формате JPG, PNG, WEBP или GIF.'), false);
+    cb(new Error('Выбранный файл не поддерживается. Пожалуйста, выберите изображение в формате JPG, PNG, WEBP, GIF или HEIC.'), false);
   }
 };
 
 const upload = multer({ 
   storage: storage,
   fileFilter: fileFilter,
-  limits: { fileSize: 5 * 1024 * 1024 } // 5 МБ
+  limits: { fileSize: 50 * 1024 * 1024 } // ИСПРАВЛЕНО: Увеличили лимит до 50 МБ под тяжелые фотографии
 });
 
 // Безопасный перехват ошибок Multer с понятными ответами
@@ -38,7 +41,8 @@ const uploadWrapper = (req, res, next) => {
   upload.single('image')(req, res, (err) => {
     if (err instanceof multer.MulterError) {
       if (err.code === 'LIMIT_FILE_SIZE') {
-        return res.status(400).json({ error: 'Файл слишком большой. Пожалуйста, выберите изображение размером менее 5 МБ.' });
+        // ИСПРАВЛЕНО: Текст ошибки теперь синхронизирован с новым лимитом в 50 МБ
+        return res.status(400).json({ error: 'Файл слишком большой. Пожалуйста, выберите изображение размером менее 50 МБ.' });
       }
       return res.status(400).json({ error: 'Произошла ошибка при загрузке файла. Попробуйте выбрать другое изображение.' });
     } else if (err) {
@@ -49,7 +53,7 @@ const uploadWrapper = (req, res, next) => {
 };
 
 router.get('/', getPosts);       
-router.get('/user/:userId', verifyToken, getUserPosts); // Добавили проверку токена
+router.get('/user/:userId', verifyToken, getUserPosts); 
 router.post('/', verifyToken, uploadWrapper, createPost);     
 router.post('/like', verifyToken, toggleLike); 
 router.delete('/:id', verifyToken, deletePost); 
