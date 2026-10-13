@@ -8,6 +8,7 @@ interface Post {
   id: number;
   user_id: number;
   username: string;
+  avatar_url?: string | null; // ВСТАВЬ СТРОГО ЭТУ СТРОЧКУ СЮДА 👈
   content: string;
   image_url: string | null;
   created_at: string;

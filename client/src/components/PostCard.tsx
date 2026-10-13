@@ -13,8 +13,22 @@ interface Comment {
   parent_id: number | null;
 }
 
+// Задаём строгую структуру для Profile.tsx, сохраняя обратную совместимость
+export interface Post {
+  id: number;
+  user_id: number;
+  username: string;
+  avatar_url?: string | null;
+  content: string;
+  image_url: string | null;
+  created_at: string;
+  likes_count: number;
+  comments_count: number;
+  is_liked: boolean;
+}
+
 interface PostCardProps {
-  post: any;
+  post: Post;
   token: string;
   currentUserId: number;
   onLike: (id: number) => void;
@@ -51,7 +65,6 @@ export const PostCard: React.FC<PostCardProps> = ({ post, token, currentUserId, 
     setPostLikesCount(post.likes_count || 0);
     setIsLocalPostLiked(post.is_liked || false);
   }, [post.comments_count, post.likes_count, post.is_liked]);
-
   const fetchComments = () => {
     fetch(API_URL + '/api/comments/' + post.id, {
       headers: { 'Authorization': 'Bearer ' + token }
@@ -171,7 +184,6 @@ export const PostCard: React.FC<PostCardProps> = ({ post, token, currentUserId, 
       return <span key={index}>{part}</span>;
     });
   };
-
   const handlePostLikeClick = () => {
     const nextLikedState = !isPostLiked;
     setIsLocalPostLiked(nextLikedState);
@@ -244,14 +256,19 @@ export const PostCard: React.FC<PostCardProps> = ({ post, token, currentUserId, 
       body: JSON.stringify({ comment_id: commentId }),
     });
   };
-
   const mainComments = comments.filter(c => !c.parent_id);
+
+  const buildSrc = (url: string | null) => {
+    if (!url) return '';
+    return url.startsWith('http') ? url : (API_URL + (url.startsWith('/') ? '' : '/') + url);
+  };
+
   return (
     <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-all hover:border-slate-300">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Link to={post.user_id.toString() === currentUserId.toString() ? "/profile" : '/user/' + post.user_id} className="h-10 w-10 shrink-0 overflow-hidden rounded-full border border-slate-100 bg-slate-50 flex items-center justify-center font-bold text-slate-500">
-            {post.avatar_url ? <img src={API_URL + post.avatar_url} alt="Аватар" className="h-full w-full object-cover" /> : post.username ? post.username.toUpperCase().substring(0, 2) : 'US'}
+            {post.avatar_url ? <img src={buildSrc(post.avatar_url)} alt="Аватар" className="h-full w-full object-cover" /> : post.username ? post.username.toUpperCase().substring(0, 2) : 'US'}
           </Link>
           <div className="flex flex-col">
             <Link to={post.user_id.toString() === currentUserId.toString() ? "/profile" : '/user/' + post.user_id} className="text-base font-bold text-slate-900 hover:text-blue-600 hover:underline">
@@ -262,8 +279,8 @@ export const PostCard: React.FC<PostCardProps> = ({ post, token, currentUserId, 
         </div>
         {post.user_id.toString() === currentUserId.toString() && !isEditing && (
           <div className="flex gap-2">
-            <button onClick={() => setIsEditing(true)} className="rounded-lg bg-slate-50 px-2 py-1 text-xs text-slate-500 font-semibold hover:bg-blue-50">✏️ Ред.</button>
-            <button onClick={() => onDelete(post.id)} className="rounded-lg bg-slate-50 p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-600">🗑️</button>
+            <button onClick={() => setIsEditing(true)} className="rounded-lg bg-slate-50 px-2 py-1 text-xs text-slate-500 font-semibold hover:bg-blue-50 focus:outline-none">✏️ Ред.</button>
+            <button onClick={() => onDelete(post.id)} className="rounded-lg bg-slate-50 p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-600 focus:outline-none">🗑️</button>
           </div>
         )}
       </div>
@@ -272,56 +289,68 @@ export const PostCard: React.FC<PostCardProps> = ({ post, token, currentUserId, 
         <form onSubmit={handleSaveEdit} className="mt-3 flex flex-col gap-2">
           <textarea value={editedContent} onChange={(e) => setEditedContent(e.target.value)} rows={3} className="w-full rounded-xl border border-slate-200 p-3 text-base text-slate-800 focus:border-blue-500 focus:outline-none resize-none" />
           <div className="flex gap-2 justify-end">
-            <button type="button" onClick={() => { setIsEditing(false); setEditedContent(currentPostContent); }} className="rounded-xl bg-slate-100 px-4 py-1.5 text-xs font-semibold text-slate-600">Отмена</button>
-            <button type="submit" className="rounded-xl bg-blue-600 px-4 py-1.5 text-xs font-semibold text-white">Сохранить</button>
+            <button type="button" onClick={() => { setIsEditing(false); setEditedContent(currentPostContent); }} className="rounded-xl bg-slate-100 px-4 py-1.5 text-xs font-semibold text-slate-600 focus:outline-none">Отмена</button>
+            <button type="submit" className="rounded-xl bg-blue-600 px-4 py-1.5 text-xs font-semibold text-white focus:outline-none">Сохранить</button>
           </div>
         </form>
       ) : (
         <p className="mt-3 text-base text-slate-700 leading-relaxed whitespace-pre-wrap">{renderTextWithMentions(currentPostContent)}</p>
       )}
 
-
+      {/* Фото публикации с автодетектором RAW .dng */}
       {post.image_url && (
         <div className="mt-3 overflow-hidden rounded-xl border border-slate-100 bg-slate-50">
           <img 
-            src={post.image_url.startsWith('http') ? post.image_url : (API_URL + (post.image_url.startsWith('/') ? '' : '/') + post.image_url)} 
+            src={buildSrc(post.image_url)} 
             alt="Контент публикации" 
             className="max-h-96 w-full object-cover" 
             loading="lazy"
+            onError={(e) => {
+              const target = e.target as HTMLImageElement;
+              if (post.image_url?.toLowerCase().endsWith('.dng')) {
+                target.style.display = 'none';
+                const parent = target.parentElement;
+                if (parent) {
+                  const tip = document.createElement('div');
+                  tip.className = "p-4 text-center text-xs text-amber-600 font-bold bg-amber-50/50 border border-dashed border-amber-200 rounded-xl m-2";
+                  tip.innerText = "📷 Фото загружено в формате RAW (.dng). Браузеры на ПК его не поддерживают. Переключите камеру телефона на JPEG / Наиболее совместимый.";
+                  parent.appendChild(tip);
+                }
+              }
+            }}
           />
         </div>
       )}
 
       <div className="mt-4 flex items-center gap-4 border-t border-slate-50 pt-3">
-        <button onClick={handlePostLikeClick} className={`flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-bold transition-all active:scale-90 ${isPostLiked ? 'bg-rose-50 text-rose-600' : 'bg-slate-50 text-slate-600 hover:bg-rose-50'}`}>
+        <button onClick={handlePostLikeClick} className={`flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-bold transition-all active:scale-90 focus:outline-none ${isPostLiked ? 'bg-rose-50 text-rose-600' : 'bg-slate-50 text-slate-600 hover:bg-rose-50'}`}>
           <span>{isPostLiked ? '❤️' : '🤍'}</span> <span>{postLikesCount}</span>
         </button>
-        <button onClick={() => setShowComments(!showComments)} className="text-sm font-semibold text-slate-500 hover:text-blue-600">
+        <button onClick={() => setShowComments(!showComments)} className="text-sm font-semibold text-slate-500 hover:text-blue-600 focus:outline-none">
           💬 {showComments ? 'Скрыть ответы' : 'Обсудить (' + localCommentsCount + ')'}
         </button>
       </div>
-
-      {showComments && (
+       {showComments && (
         <div className="mt-4 border-t border-slate-100 bg-slate-50/50 -mx-5 -mb-5 p-5 rounded-b-2xl relative">
           
           <form onSubmit={handleAddComment} className="flex flex-col gap-1.5 relative">
             {replyToId && (
               <div className="text-xs text-blue-600 font-semibold flex items-center justify-between bg-blue-50/60 px-3 py-1 rounded-lg">
                 <span>Ответ на комментарий...</span>
-                <button type="button" onClick={() => { setReplyToId(null); setCommentContent(''); }} className="text-slate-400 hover:text-slate-600 font-bold">✕ Отмена</button>
+                <button type="button" onClick={() => { setReplyToId(null); setCommentContent(''); }} className="text-slate-400 hover:text-slate-600 font-bold focus:outline-none">✕ Отмена</button>
               </div>
             )}
             
             <div className="relative flex gap-2">
               <input type="text" id={'input-comment-' + post.id} value={commentContent} autoComplete="off" onChange={(e) => setCommentContent(e.target.value)} placeholder={replyToId ? "Напишите ответ..." : "Напишите комментарий..."} className="flex-1 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm focus:border-blue-500 focus:outline-none" />
-              <button type="submit" className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700">Отправить</button>
+              <button type="submit" className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 focus:outline-none">Отправить</button>
 
               {showSuggestions && searchSuggestions.length > 0 && (
                 <div className="absolute bottom-full left-0 z-50 mb-2 w-56 rounded-xl border border-slate-100 bg-white p-1.5 shadow-2xl flex flex-col gap-0.5">
                   {searchSuggestions.map((u) => (
-                    <button key={u.id} type="button" onClick={() => handleSuggestionClick(u.username)} className="flex items-center gap-2 w-full rounded-lg p-1.5 text-left text-xs font-bold text-slate-800 hover:bg-slate-50">
+                    <button key={u.id} type="button" onClick={() => handleSuggestionClick(u.username)} className="flex items-center gap-2 w-full rounded-lg p-1.5 text-left text-xs font-bold text-slate-800 hover:bg-slate-50 focus:outline-none">
                       <div className="h-6 w-6 rounded-full bg-blue-50 flex items-center justify-center text-[10px] text-blue-600 overflow-hidden shrink-0">
-                        {u.avatar_url ? <img src={API_URL + u.avatar_url} className="h-full w-full object-cover" /> : u.username.substring(0,2).toUpperCase()}
+                        {u.avatar_url ? <img src={buildSrc(u.avatar_url)} className="h-full w-full object-cover" /> : u.username.substring(0,2).toUpperCase()}
                       </div>
                       <span className="truncate">@{u.username}</span>
                     </button>
@@ -337,30 +366,29 @@ export const PostCard: React.FC<PostCardProps> = ({ post, token, currentUserId, 
             ) : (
               mainComments.map((comment) => {
                 const canDeleteMain = comment.user_id.toString() === currentUserId.toString() || post.user_id.toString() === currentUserId.toString();
-                const isMainAuthor = comment.user_id.toString() === post.user_id.toString();
                 const childReplies = comments.filter(c => c.parent_id === comment.id);
 
                 return (
-                  <div key={comment.id} id={'comment-node-' + comment.id} className="flex flex-col gap-2 border-b border-slate-100/30 last:border-0 pb-2 last:pb-0 rounded-xl transition-all duration-500 p-2">
+                  <div key={comment.id} id={'comment-node-' + comment.id} className="flex flex-col gap-2 border-b border-slate-100/30 last:border-0 pb-2 last:pb-0 rounded-xl transition-all duration-500 p-2 bg-white shadow-sm">
                     
                     <div className="group flex items-center justify-between text-sm py-0.5">
                       <div className="flex-1">
                         <div className="flex items-center gap-1.5 flex-wrap">
                           <Link to={comment.user_id.toString() === currentUserId.toString() ? "/profile" : '/user/' + comment.user_id} className="font-bold text-slate-800 hover:text-blue-600">@{comment.username}</Link>
-                          {isMainAuthor && <span className="bg-blue-50 border border-blue-100 text-blue-600 px-1.5 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider">Автор</span>}
+                          {comment.user_id.toString() === post.user_id.toString() && <span className="bg-blue-50 border border-blue-100 text-blue-600 px-1.5 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider">Автор</span>}
                         </div>
                         <span className="text-slate-600 block mt-0.5">{renderTextWithMentions(comment.content)}</span>
                         <div className="flex items-center gap-3 text-[10px] text-slate-400 mt-1 select-none">
                           <span>{new Date(comment.created_at).toLocaleString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                          <button type="button" onClick={() => handleReplyClick(comment.id, comment.username)} className="font-bold hover:text-blue-600 hover:underline">Ответить</button>
+                          <button type="button" onClick={() => handleReplyClick(comment.id, comment.username)} className="font-bold hover:text-blue-600 hover:underline focus:outline-none">Ответить</button>
                         </div>
                       </div>
 
                       <div className="flex items-center gap-3">
-                        <button type="button" onClick={() => handleCommentLike(comment.id)} className={`text-xs font-bold transition-all px-2 py-1 rounded-full flex items-center gap-1 ${comment.is_liked ? 'bg-rose-50 text-rose-600' : 'text-slate-400 hover:text-rose-500'}`}>
+                        <button type="button" onClick={() => handleCommentLike(comment.id)} className={`text-xs font-bold transition-all px-2 py-1 rounded-full flex items-center gap-1 focus:outline-none ${comment.is_liked ? 'bg-rose-50 text-rose-600' : 'text-slate-400 hover:text-rose-500'}`}>
                           <span>{comment.is_liked ? '❤️' : '🤍'}</span> <span className="text-[11px] font-medium">{comment.likes_count || 0}</span>
                         </button>
-                        {canDeleteMain && <button type="button" onClick={() => handleDeleteComment(comment.id)} className="text-xs text-slate-300 opacity-0 group-hover:opacity-100 hover:text-rose-600">✕</button>}
+                        {canDeleteMain && <button type="button" onClick={() => handleDeleteComment(comment.id)} className="text-xs text-slate-300 hover:text-rose-600 focus:outline-none">✕</button>}
                       </div>
                     </div>
 
@@ -371,7 +399,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post, token, currentUserId, 
                           const isReplyAuthor = reply.user_id.toString() === post.user_id.toString();
 
                           return (
-                            <div key={reply.id} id={'comment-node-' + reply.id} className="group flex items-center justify-between text-xs transition-all duration-500 p-1.5 rounded-lg">
+                            <div key={reply.id} id={'comment-node-' + reply.id} className="group flex items-center justify-between text-xs transition-all duration-500 p-1.5 rounded-lg bg-white/60">
                               <div className="flex-1">
                                 <div className="flex items-center gap-1.5 flex-wrap">
                                   <Link to={reply.user_id.toString() === currentUserId.toString() ? "/profile" : '/user/' + reply.user_id} className="font-bold text-slate-800 hover:text-blue-600">@{reply.username}</Link>
@@ -380,22 +408,21 @@ export const PostCard: React.FC<PostCardProps> = ({ post, token, currentUserId, 
                                 <span className="text-slate-600 block mt-0.5">{renderTextWithMentions(reply.content)}</span>
                                 <div className="flex items-center gap-3 text-[9px] text-slate-400 mt-1 select-none">
                                   <span>{new Date(reply.created_at).toLocaleString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                                  <button type="button" onClick={() => handleReplyClick(comment.id, reply.username)} className="font-bold hover:text-blue-600 hover:underline">Ответить</button>
+                                  <button type="button" onClick={() => handleReplyClick(comment.id, reply.username)} className="font-bold hover:text-blue-600 hover:underline focus:outline-none">Ответить</button>
                                 </div>
                               </div>
 
                               <div className="flex items-center gap-2">
-                                <button type="button" onClick={() => handleCommentLike(reply.id)} className={`text-[11px] font-bold transition-all px-1.5 py-0.5 rounded-full flex items-center gap-0.5 ${reply.is_liked ? 'bg-rose-50 text-rose-600' : 'text-slate-400 hover:text-rose-500'}`}>
+                                <button type="button" onClick={() => handleCommentLike(reply.id)} className={`text-[11px] font-bold transition-all px-1.5 py-0.5 rounded-full flex items-center gap-0.5 focus:outline-none ${reply.is_liked ? 'bg-rose-50 text-rose-600' : 'text-slate-400 hover:text-rose-500'}`}>
                                   <span>{reply.is_liked ? '❤️' : '🤍'}</span> <span>{reply.likes_count || 0}</span>
                                 </button>
-                                {canDeleteReply && <button type="button" onClick={() => handleDeleteComment(reply.id)} className="text-[10px] text-slate-300 opacity-0 group-hover:opacity-100 hover:text-rose-600">✕</button>}
+                                {canDeleteReply && <button type="button" onClick={() => handleDeleteComment(reply.id)} className="text-[10px] text-slate-300 hover:text-rose-600 focus:outline-none">✕</button>}
                               </div>
                             </div>
                           );
                         })}
                       </div>
                     )}
-
                   </div>
                 );
               })
