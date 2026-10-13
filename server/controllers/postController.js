@@ -48,28 +48,42 @@ export const getPosts = async (req, res) => {
 };
 
 // 2. Создание нового поста (С поддержкой картинок через multer)
+// ИСПРАВЛЕНО: Бэкенд теперь разрешает публикацию, если есть ХОТЯ БЫ текст или файл картинки
 export const createPost = async (req, res) => {
   try {
+    const userId = req.user.id;
     const { content } = req.body;
-    const user_id = req.user.id; 
+    
+    // Проверяем, загрузил ли пользователь изображение через Multer
+    const imageUrl = req.file ? `/uploads/${req.file.filename}` : null;
 
-    if (!content) {
-      return res.status(400).json({ error: 'Текст поста обязателен' });
+    // ИСПРАВЛЕНО: Блокируем запрос ТОЛЬКО если нет ни текста, ни картинки одновременно
+    if (!content?.trim() && !imageUrl) {
+      return res.status(400).json({ error: 'Публикация не может быть пустой. Напишите текст или прикрепите фото.' });
     }
 
-    const image_url = req.file ? `/uploads/${req.file.filename}` : null;
-
-    const newPost = await pool.query(
+    // Сохраняем в PostgreSQL (передаем пустую строку, если текста нет, чтобы база не ругалась на null)
+    const result = await pool.query(
       'INSERT INTO posts (user_id, content, image_url) VALUES (\$1, \$2, \$3) RETURNING *',
-      [user_id, content, image_url]
+      [userId, content ? content.trim() : '', imageUrl]
     );
 
-    res.status(201).json(newPost.rows);
+    // Подтягиваем никнейм автора для мгновенного обновления UI на фронтенде
+    const postWithUser = await pool.query(
+      `SELECT p.*, u.username, u.avatar_url 
+       FROM posts p 
+       JOIN users u ON p.user_id = u.id 
+       WHERE p.id = $1`,
+      [result.rows[0].id]
+    );
+
+    res.status(201).json({ post: postWithUser.rows[0] });
   } catch (error) {
-    console.error('Ошибка при создании поста:', error);
-    res.status(500).json({ error: 'Ошибка сервера' });
+    console.error('Ошибка в createPost:', error);
+    res.status(500).json({ error: 'Ошибка сервера при создании публикации' });
   }
 };
+
 
 // 3. Переключение лайка поста + АВТОМАТИЧЕСКОЕ УВЕДОМЛЕНИЕ
 export const toggleLike = async (req, res) => {
