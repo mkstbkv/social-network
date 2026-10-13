@@ -13,7 +13,6 @@ interface Comment {
   parent_id: number | null;
 }
 
-// Задаём строгую структуру для Profile.tsx, сохраняя обратную совместимость
 export interface Post {
   id: number;
   user_id: number;
@@ -35,7 +34,7 @@ interface PostCardProps {
   onDelete: (id: number) => void;
 }
 
-export const PostCard: React.FC<PostCardProps> = ({ post, token, currentUserId, onDelete }) => {
+export const PostCard: React.FC<PostCardProps> = ({ post, token, currentUserId, onLike, onDelete }) => {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   
@@ -58,6 +57,10 @@ export const PostCard: React.FC<PostCardProps> = ({ post, token, currentUserId, 
   const [searchSuggestions, setSearchSuggestions] = useState<any[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
 
+  // ИСПРАВЛЕНО: Стейт и реф для контекстного меню трех точек
+  const [showActionMenu, setShowActionMenu] = useState(false);
+  const actionMenuRef = useRef<HTMLDivElement>(null);
+
   const hasScrolledRef = useRef<boolean>(false);
 
   useEffect(() => {
@@ -65,6 +68,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post, token, currentUserId, 
     setPostLikesCount(post.likes_count || 0);
     setIsLocalPostLiked(post.is_liked || false);
   }, [post.comments_count, post.likes_count, post.is_liked]);
+
   const fetchComments = () => {
     fetch(API_URL + '/api/comments/' + post.id, {
       headers: { 'Authorization': 'Bearer ' + token }
@@ -73,12 +77,9 @@ export const PostCard: React.FC<PostCardProps> = ({ post, token, currentUserId, 
       .then((data) => setComments(Array.isArray(data) ? data : []))
       .catch((err) => console.error(err));
   };
-
   useEffect(() => {
     if (targetCommentId && targetPostId && post.id.toString() === targetPostId.toString() && !hasScrolledRef.current) {
-      if (!showComments) {
-        setShowComments(true);
-      }
+      if (!showComments) setShowComments(true);
     }
   }, [targetCommentId, targetPostId, post.id, showComments]);
 
@@ -87,17 +88,14 @@ export const PostCard: React.FC<PostCardProps> = ({ post, token, currentUserId, 
       const hasTarget = comments.some(c => c.id.toString() === targetCommentId.toString());
       if (hasTarget) {
         hasScrolledRef.current = true;
-
         setTimeout(() => {
           const el = document.getElementById('comment-node-' + targetCommentId);
           if (el) {
             el.scrollIntoView({ behavior: 'smooth', block: 'center' });
             el.classList.add('bg-amber-100/60');
-            
             setTimeout(() => {
               if (el) el.classList.remove('bg-amber-100/60');
             }, 2000);
-
             const newParams = new URLSearchParams(searchParams);
             newParams.delete('comment');
             newParams.delete('post');
@@ -116,19 +114,28 @@ export const PostCard: React.FC<PostCardProps> = ({ post, token, currentUserId, 
     }
   }, [showComments, post.id]);
 
+  // Закрытие меню трёх точек по клику вне его области
+  useEffect(() => {
+    const handleClickOutsideMenu = (e: MouseEvent) => {
+      if (actionMenuRef.current && !actionMenuRef.current.contains(e.target as Node)) {
+        setShowActionMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutsideMenu);
+    return () => document.removeEventListener('mousedown', handleClickOutsideMenu);
+  }, []);
+
   useEffect(() => {
     const atIndex = commentContent.lastIndexOf('@');
     if (atIndex === -1) {
       setShowSuggestions(false);
       return;
     }
-
     const query = commentContent.substring(atIndex + 1);
     if (query.trim().length === 0 || query.includes(' ')) {
       setShowSuggestions(false);
       return;
     }
-
     const delayDebounceTimer = setTimeout(() => {
       fetch(API_URL + '/api/users/search?query=' + query, {
         headers: { 'Authorization': 'Bearer ' + token }
@@ -140,7 +147,6 @@ export const PostCard: React.FC<PostCardProps> = ({ post, token, currentUserId, 
         })
         .catch((err) => console.error(err));
     }, 400);
-
     return () => clearTimeout(delayDebounceTimer);
   }, [commentContent, token]);
 
@@ -155,7 +161,6 @@ export const PostCard: React.FC<PostCardProps> = ({ post, token, currentUserId, 
 
   const handleMentionTextClick = (rawText: string) => {
     const cleanUsername = rawText.replace(/[@.,\/#!$%\^&\*;:{}=\-_`~()]/g, "").trim();
-
     fetch(API_URL + '/api/users/by-username/' + encodeURIComponent(cleanUsername), {
       headers: { 'Authorization': 'Bearer ' + token }
     })
@@ -184,18 +189,21 @@ export const PostCard: React.FC<PostCardProps> = ({ post, token, currentUserId, 
       return <span key={index}>{part}</span>;
     });
   };
+
   const handlePostLikeClick = () => {
     const nextLikedState = !isPostLiked;
     setIsLocalPostLiked(nextLikedState);
     setPostLikesCount(prev => nextLikedState ? prev + 1 : Math.max(0, prev - 1));
-
     fetch(API_URL + '/api/posts/like', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
       body: JSON.stringify({ post_id: post.id }),
     })
       .then((res) => res.json())
-      .then((data) => setIsLocalPostLiked(data.liked))
+      .then((data) => {
+        setIsLocalPostLiked(data.liked);
+        onLike(post.id);
+      })
       .catch(() => {
         setIsLocalPostLiked(post.is_liked);
         setPostLikesCount(post.likes_count);
@@ -205,7 +213,6 @@ export const PostCard: React.FC<PostCardProps> = ({ post, token, currentUserId, 
   const handleAddComment = (e: React.FormEvent) => {
     e.preventDefault();
     if (!commentContent.trim()) return;
-
     fetch(API_URL + '/api/comments', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
@@ -264,7 +271,8 @@ export const PostCard: React.FC<PostCardProps> = ({ post, token, currentUserId, 
   };
 
   return (
-    <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-all hover:border-slate-300">
+    <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-all hover:border-slate-300 relative mb-4">
+      {/* Шапка карточки поста */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Link to={post.user_id.toString() === currentUserId.toString() ? "/profile" : '/user/' + post.user_id} className="h-10 w-10 shrink-0 overflow-hidden rounded-full border border-slate-100 bg-slate-50 flex items-center justify-center font-bold text-slate-500">
@@ -277,14 +285,38 @@ export const PostCard: React.FC<PostCardProps> = ({ post, token, currentUserId, 
             <small className="text-xs text-slate-400">{new Date(post.created_at).toLocaleString()}</small>
           </div>
         </div>
+
+        {/* ИСПРАВЛЕНО: Кнопки спрятаны внутрь меню "Три точки" для авторов */}
         {post.user_id.toString() === currentUserId.toString() && !isEditing && (
-          <div className="flex gap-2">
-            <button onClick={() => setIsEditing(true)} className="rounded-lg bg-slate-50 px-2 py-1 text-xs text-slate-500 font-semibold hover:bg-blue-50 focus:outline-none">✏️ Ред.</button>
-            <button onClick={() => onDelete(post.id)} className="rounded-lg bg-slate-50 p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-600 focus:outline-none">🗑️</button>
+          <div className="relative" ref={actionMenuRef}>
+            <button 
+              onClick={() => setShowActionMenu(!showActionMenu)} 
+              className="text-slate-400 hover:text-slate-700 font-black p-2 rounded-full hover:bg-slate-50 select-none transition-colors focus:outline-none"
+              title="Управление публикацией"
+            >
+              •••
+            </button>
+            
+            {showActionMenu && (
+              <div className="absolute right-0 top-full mt-1 z-30 w-36 origin-top-right rounded-xl border border-slate-100 bg-white p-1 shadow-xl flex flex-col gap-0.5 animate-fade-in">
+                <button 
+                  onClick={() => { setIsEditing(true); setShowActionMenu(false); }} 
+                  className="w-full text-left px-3 py-2 text-xs font-bold text-slate-700 hover:bg-blue-50 hover:text-blue-600 rounded-lg transition-colors focus:outline-none"
+                >
+                  ✏️ Редактировать
+                </button>
+                <button 
+                  onClick={() => { onDelete(post.id); setShowActionMenu(false); }} 
+                  className="w-full text-left px-3 py-2 text-xs font-bold text-rose-600 hover:bg-rose-50 rounded-lg transition-colors focus:outline-none"
+                >
+                  🗑️ Удалить пост
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>
-
+      {/* Текст поста или поле редактирования */}
       {isEditing ? (
         <form onSubmit={handleSaveEdit} className="mt-3 flex flex-col gap-2">
           <textarea value={editedContent} onChange={(e) => setEditedContent(e.target.value)} rows={3} className="w-full rounded-xl border border-slate-200 p-3 text-base text-slate-800 focus:border-blue-500 focus:outline-none resize-none" />
@@ -297,7 +329,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post, token, currentUserId, 
         <p className="mt-3 text-base text-slate-700 leading-relaxed whitespace-pre-wrap">{renderTextWithMentions(currentPostContent)}</p>
       )}
 
-      {/* Фото публикации с автодетектором RAW .dng */}
+      {/* Фото публикации с проверкой пути */}
       {post.image_url && (
         <div className="mt-3 overflow-hidden rounded-xl border border-slate-100 bg-slate-50">
           <img 
@@ -313,7 +345,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post, token, currentUserId, 
                 if (parent) {
                   const tip = document.createElement('div');
                   tip.className = "p-4 text-center text-xs text-amber-600 font-bold bg-amber-50/50 border border-dashed border-amber-200 rounded-xl m-2";
-                  tip.innerText = "📷 Фото загружено в формате RAW (.dng). Браузеры на ПК его не поддерживают. Переключите камеру телефона на JPEG / Наиболее совместимый.";
+                  tip.innerText = "📷 Фото загружено в формате RAW (.dng). Браузеры на ПК его не поддерживают. Измените настройки камеры телефона на JPEG / Наиболее совместимый.";
                   parent.appendChild(tip);
                 }
               }
@@ -322,6 +354,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post, token, currentUserId, 
         </div>
       )}
 
+      {/* Нижние кнопки взаимодействия */}
       <div className="mt-4 flex items-center gap-4 border-t border-slate-50 pt-3">
         <button onClick={handlePostLikeClick} className={`flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-bold transition-all active:scale-90 focus:outline-none ${isPostLiked ? 'bg-rose-50 text-rose-600' : 'bg-slate-50 text-slate-600 hover:bg-rose-50'}`}>
           <span>{isPostLiked ? '❤️' : '🤍'}</span> <span>{postLikesCount}</span>
