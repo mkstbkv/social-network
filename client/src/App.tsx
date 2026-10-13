@@ -18,7 +18,6 @@ export default function App() {
   const [checkingAuth, setCheckingAuth] = useState<boolean>(true);
   const [totalUnreadMessages, setTotalUnreadMessages] = useState<number>(0);
   
-  // ИСПРАВЛЕНО: Глобальный флаг загрузки публикации, который не исчезает при переходах между страницами
   const [globalSubmitting, setGlobalSubmitting] = useState<boolean>(false);
   const [showUserMenu, setShowUserMenu] = useState<boolean>(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
@@ -81,9 +80,10 @@ export default function App() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // ИСПРАВЛЕНО: Глобальная функция создания публикации
+  // ИСПРАВЛЕНО: Теперь пост отправляется, если есть ТЕКСТ ИЛИ ФОТО (можно отправить чистое фото)
   const handleGlobalCreatePost = async (content: string, imageFile: File | null, callback: () => void) => {
-    if (!content.trim() || globalSubmitting || !token) return;
+    if (globalSubmitting || !token) return;
+    if (!content.trim() && !imageFile) return; // Блокируем, только если пусто и там, и там
 
     setGlobalSubmitting(true);
 
@@ -101,15 +101,14 @@ export default function App() {
       const data = await res.json();
 
       if (!res.ok) {
-        // Выводим четкий текст ошибки с бэкенда (например, про лимит 50 МБ)
         throw new Error(data.error || 'Ошибка при публикации поста');
       }
 
-      callback(); // Очищаем форму в профиле при успехе
+      callback(); 
     } catch (err: any) {
       alert(err.message);
     } finally {
-      setGlobalSubmitting(false); // Снимаем глобальную блокировку
+      setGlobalSubmitting(false); 
     }
   };
 
@@ -139,12 +138,10 @@ export default function App() {
   if (checkingAuth) {
     return <div className="min-h-screen bg-slate-50" />;
   }
-   return (
+  return (
     <div className="min-h-screen bg-slate-50 text-slate-800 antialiased font-sans">
       {token && user && (
         <header className="sticky top-0 z-40 w-full border-b border-slate-200/80 bg-white/80 backdrop-blur-md">
-          
-          {/* ИСПРАВЛЕНО: Глобальный индикатор загрузки поверх шапки сайта */}
           {globalSubmitting && (
             <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-500 via-indigo-500 to-emerald-500 animate-pulse z-50" />
           )}
@@ -157,7 +154,7 @@ export default function App() {
 
             <div className="flex items-center gap-2 sm:gap-4">
               <Link to="/messages" onClick={() => setShowUserMenu(false)} className="text-sm font-bold text-slate-600 hover:text-blue-600 transition-colors flex items-center gap-1.5 relative p-2 rounded-xl hover:bg-slate-50">
-                <span>💬</span> 
+                <span>Сообщения💬</span> 
                 <span className="hidden xs:inline">Сообщения</span>
                 {totalUnreadMessages > 0 && (
                   <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[9px] font-black text-white shadow-sm shadow-rose-200">
@@ -218,7 +215,6 @@ export default function App() {
             </div>
           </div>
           
-          {/* Информационный баннер в шапке, сообщающий о фоновом процессе загрузки постов */}
           {globalSubmitting && (
             <div className="w-full bg-blue-50 border-b border-blue-100 text-center py-1 text-[11px] font-bold text-blue-600 animate-pulse select-none">
               ⏳ Публикация медиафайла в облако PostgreSQL... Вы можете свободно перемещаться по сайту.
@@ -231,7 +227,6 @@ export default function App() {
         <Routes>
           <Route path="/" element={token && user ? <Feed token={token} currentUserId={user.id} /> : <Navigate to="/login" replace />} />
           
-          {/* Передаем параметры глобальной отправки внутрь страницы Профиля */}
           <Route path="/profile" element={
             token && user ? (
               <Profile 
