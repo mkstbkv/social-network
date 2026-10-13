@@ -1,21 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router';
 import { PostCard } from '../components/PostCard';
+import type { Post } from '../components/PostCard';
 import { FollowModal } from '../components/FollowModal';
 import { API_URL } from '../api';
-
-interface Post {
-  id: number;
-  user_id: number;
-  username: string;
-  avatar_url?: string | null; // ВСТАВЬ СТРОГО ЭТУ СТРОЧКУ СЮДА 👈
-  content: string;
-  image_url: string | null;
-  created_at: string;
-  likes_count: number;
-  comments_count: number;
-  is_liked: boolean;
-}
 
 interface FollowUser {
   id: number;
@@ -92,9 +80,11 @@ export const Profile: React.FC<ProfileProps> = ({
     fetchProfileData();
   }, [currentUser?.id, targetPostId]);
 
+  // ИСПРАВЛЕНО: Теперь можно публиковать пост вообще БЕЗ текста, если прикреплено фото!
   const handleLocalSubmitPost = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newPostContent.trim() || globalSubmitting) return;
+    if (globalSubmitting) return;
+    if (!newPostContent.trim() && !newPostImage) return;
 
     onGlobalCreatePost(newPostContent, newPostImage, () => {
       setNewMessageContent('');
@@ -103,6 +93,23 @@ export const Profile: React.FC<ProfileProps> = ({
       if (fileInput) fileInput.value = '';
       fetchUserPosts();
     });
+  };
+
+  // ИСПРАВЛЕНО: Функция-перехватчик, блокирующая нечитаемый формат .dng на лету
+  const handlePostImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFile = e.target.files && e.target.files.length > 0 ? e.target.files[0] : null;
+    if (!selectedFile) return;
+
+    const fileExtension = selectedFile.name.split('.').pop()?.toLowerCase();
+    
+    if (fileExtension === 'dng') {
+      alert('⚠️ Формат RAW (.dng) заблокирован для загрузки, так как компьютеры не смогут открыть это изображение. Пожалуйста, переключите камеру телефона в режим JPEG/Наиболее совместимый или выберите другую фотографию.');
+      e.target.value = ''; // Сбрасываем выбранный файл в инпуте
+      setNewPostImage(null);
+      return;
+    }
+
+    setNewPostImage(selectedFile);
   };
 
   const openFollowModal = (type: 'followers' | 'following') => {
@@ -120,12 +127,11 @@ export const Profile: React.FC<ProfileProps> = ({
   };
 
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    // ИСПРАВЛЕНО 2: Берём строго первый File по индексу [0] вместо FileList
-    const file = e.target.files && e.target.files.length > 0 ? e.target.files[0] : null;
-    if (!file) return;
+    const selectedFile = e.target.files && e.target.files.length > 0 ? e.target.files[0] : null;
+    if (!selectedFile) return;
 
     const formData = new FormData();
-    formData.append('avatar', file);
+    formData.append('avatar', selectedFile);
 
     fetch(API_URL + '/api/users/avatar', {
       method: 'POST',
@@ -172,7 +178,7 @@ export const Profile: React.FC<ProfileProps> = ({
   };
 
   if (!currentUser) return <p className="text-center mt-8 text-slate-400 text-sm">Загрузка данных...</p>;
-   return (
+  return (
     <div className="mx-auto w-full max-w-2xl transition-all">
       <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-6 shadow-sm mb-4 sm:mb-6">
         <div className="flex flex-col sm:flex-row items-center gap-4 text-center sm:text-left">
@@ -231,21 +237,19 @@ export const Profile: React.FC<ProfileProps> = ({
       <div className="mb-4 sm:mb-6 rounded-2xl border border-slate-200 bg-white p-3 sm:p-4 shadow-sm">
         <h4 className="text-xs sm:text-sm font-black text-slate-900 mb-2 uppercase tracking-wider">Создать новую публикацию</h4>
         <form onSubmit={handleLocalSubmitPost} className="flex flex-col gap-3">
-          <textarea value={newPostContent} onChange={(e) => setNewMessageContent(e.target.value)} placeholder="Что у вас нового? Расскажите подписчикам..." rows={3} className="w-full rounded-xl border border-slate-100 p-2 text-sm text-slate-800 focus:border-blue-500 focus:outline-none resize-none" />
+          <textarea value={newPostContent} onChange={(e) => setNewMessageContent(e.target.value)} placeholder="Что у вас нового? Или просто опубликуйте фото..." rows={3} className="w-full rounded-xl border border-slate-100 p-2 text-sm text-slate-800 focus:border-blue-500 focus:outline-none resize-none" />
           <div className="flex flex-col sm:flex-row sm:items-center justify-between border-t border-slate-50 pt-2 gap-2">
             <label className="flex cursor-pointer items-center justify-center sm:justify-start gap-1.5 text-xs font-bold text-slate-500 hover:text-blue-600 select-none bg-slate-50 sm:bg-transparent py-2 sm:py-0 rounded-xl border border-slate-100 sm:border-0">
               <span>🖼️</span> Добавить фото к посту
-              <input id="profile-file-input" type="file" accept="image/*" onChange={(e) => {
-                // ИСПРАВЛЕНО 1: Вытаскиваем строго первый файл через [0] из коллекции
-                const selectedFile = e.target.files && e.target.files.length > 0 ? e.target.files[0] : null;
-                setNewPostImage(selectedFile);
-              }} className="hidden" />
+              {/* ИСПРАВЛЕНО: Инпут слушает функцию фильтрации handlePostImageChange */}
+              <input id="profile-file-input" type="file" accept="image/*" onChange={handlePostImageChange} className="hidden" />
             </label>
             {newPostImage && <span className="text-[10px] text-center sm:text-left text-emerald-600 font-semibold truncate max-w-xs">Выбрано: {newPostImage.name}</span>}
             
+            {/* ИСПРАВЛЕНО: Кнопка активна, если есть ЛИБО текст, ЛИБО картинка */}
             <button 
               type="submit" 
-              disabled={globalSubmitting || !newPostContent.trim()} 
+              disabled={globalSubmitting || (!newPostContent.trim() && !newPostImage)} 
               className={`rounded-xl px-5 py-2 text-xs sm:text-sm font-semibold text-white shadow-sm transition-all text-center ${
                 globalSubmitting ? 'bg-slate-400 cursor-not-allowed animate-pulse' : 'bg-blue-600 hover:bg-blue-700 active:scale-95'
               }`}

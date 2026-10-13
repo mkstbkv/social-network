@@ -1,19 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { PostCard } from '../components/PostCard';
+import type { Post } from '../components/PostCard';
 import { API_URL } from '../api';
-
-interface Post {
-  id: number;
-  user_id: number;
-  username: string;
-  avatar_url: string | null;
-  content: string;
-  image_url: string | null;
-  created_at: string;
-  likes_count: number;
-  comments_count: number;
-  is_liked: boolean;
-}
 
 interface FeedProps {
   token: string;
@@ -52,17 +40,23 @@ export const Feed: React.FC<FeedProps> = ({ token, currentUserId }) => {
   const handleLike = (postId: number) => {
     setPosts((prev) =>
       prev.map((p) =>
-        p.id === postId
-          ? { ...p, is_liked: !p.is_liked, likes_count: p.is_liked ? p.likes_count - 1 : p.likes_count + 1 }
-          : p
+        p.id === postId ? { ...p, is_liked: !p.is_liked, likes_count: p.is_liked ? p.likes_count - 1 : p.likes_count + 1 } : p
       )
     );
   };
 
+  // ИСПРАВЛЕНО: Кнопка удаления теперь полностью активна и на главной странице!
+  const handleDeletePost = (postId: number) => {
+    if (!window.confirm('Вы уверены, что хотите удалить эту публикацию?')) return;
+    fetch(API_URL + '/api/posts/' + postId, {
+      method: 'DELETE',
+      headers: { 'Authorization': 'Bearer ' + token }
+    }).then(() => fetchPosts());
+  };
+
   return (
     <div className="mx-auto w-full max-w-2xl transition-all">
-      {/* Переключатели табов */}
-      <div className="mb-4 sm:mb-6 flex border-b border-slate-200 font-semibold text-xs sm:text-sm bg-white rounded-xl p-1 shadow-sm">
+      <div className="mb-4 flex border-b border-slate-200 font-semibold text-xs sm:text-sm bg-white rounded-xl p-1 shadow-sm">
         <button onClick={() => setActiveTab('all')} className={`flex-1 py-2 text-center rounded-lg transition-all focus:outline-none ${activeTab === 'all' ? 'bg-blue-500 text-white shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}>
           Все публикации
         </button>
@@ -71,7 +65,6 @@ export const Feed: React.FC<FeedProps> = ({ token, currentUserId }) => {
         </button>
       </div>
 
-      {/* Лента карточек постов */}
       <div className="flex flex-col gap-3 sm:gap-4">
         {loading ? (
           <p className="text-center text-slate-400 font-medium py-6 text-xs sm:text-sm">Загрузка ленты публикаций...</p>
@@ -79,7 +72,14 @@ export const Feed: React.FC<FeedProps> = ({ token, currentUserId }) => {
           <p className="text-center text-slate-400 italic py-6 text-xs sm:text-sm">В этой ленте пока нет ни одного поста.</p>
         ) : (
           posts.map((post) => (
-            <PostCard key={post.id} post={post} token={token} currentUserId={currentUserId} onLike={handleLike} onDelete={() => {}} />
+            <PostCard 
+              key={post.id} 
+              post={post} 
+              token={token} 
+              currentUserId={currentUserId} 
+              onLike={handleLike} 
+              onDelete={handleDeletePost} // Передали рабочую функцию
+            />
           ))
         )}
       </div>
