@@ -36,12 +36,19 @@ export const Profile: React.FC<ProfileProps> = ({ token, user, onUserUpdate }) =
   const [loading, setLoading] = useState<boolean>(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Стейты для безопасного создания нового поста прямо из профиля
+  const [newPostContent, setNewMessageContent] = useState('');
+  const [newPostImage, setNewPostImage] = useState<File | null>(null);
+  
+  // ЗАЩИТА: Блокирует повторные клики во время долгой загрузки в облако
+  const [submitting, setSubmitting] = useState<boolean>(false);
+
   const [modalOpen, setModalOpen] = useState<boolean>(false);
   const [modalTitle, setModalTitle] = useState<string>('');
   const [modalUsers, setModalUsers] = useState<FollowUser[]>([]);
   const [profileInfo, setProfileInfo] = useState<any>(null);
 
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchParams] = useSearchParams();
   const targetPostId = searchParams.get('post');
 
   const currentUser = Array.isArray(user) ? user : user;
@@ -80,25 +87,38 @@ export const Profile: React.FC<ProfileProps> = ({ token, user, onUserUpdate }) =
     fetchProfileData();
   }, [currentUser?.id, targetPostId]);
 
-  useEffect(() => {
-    if (targetPostId && posts.length > 0 && !loading) {
-      setTimeout(() => {
-        const el = document.getElementById('profile-post-node-' + targetPostId);
-        if (el) {
-          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          el.classList.add('border-blue-500', 'ring-4', 'ring-blue-100');
-          
-          setTimeout(() => {
-            if (el) el.classList.remove('border-blue-500', 'ring-4', 'ring-blue-100');
-          }, 2000);
+  // Логика отправки нового поста из профиля с защитой от повторных нажатий
+  const handleCreatePost = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newPostContent.trim() || submitting) return;
 
-          const newParams = new URLSearchParams(searchParams);
-          newParams.delete('post');
-          setSearchParams(newParams, { replace: true });
-        }
-      }, 450);
-    }
-  }, [targetPostId, posts, loading]);
+    setSubmitting(true); // Включаем режим загрузки, кнопка становится серой
+
+    const formData = new FormData();
+    formData.append('content', newPostContent.trim());
+    if (newPostImage) formData.append('image', newPostImage);
+
+    fetch(API_URL + '/api/posts', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + token },
+      body: formData,
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error('Ошибка сервера при публикации поста');
+        return res.json();
+      })
+      .then(() => {
+        setNewMessageContent('');
+        setNewPostImage(null);
+        const fileInput = document.getElementById('profile-file-input') as HTMLInputElement;
+        if (fileInput) fileInput.value = '';
+        fetchUserPosts(); // Обновляем личную ленту публикаций
+      })
+      .catch((err) => alert(err.message))
+      .finally(() => {
+        setSubmitting(false); // Выключаем режим загрузки, разблокируем интерфейс
+      });
+  };
 
   const openFollowModal = (type: 'followers' | 'following') => {
     if (!currentUser?.id) return;
@@ -115,7 +135,6 @@ export const Profile: React.FC<ProfileProps> = ({ token, user, onUserUpdate }) =
   };
 
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    // ИСПРАВЛЕНО: Извлекаем строго первый файл коллекции, убирая ошибку Overload
     const selectedFile = e.target.files && e.target.files.length > 0 ? e.target.files[0] : null;
     if (!selectedFile) return;
 
@@ -169,11 +188,9 @@ export const Profile: React.FC<ProfileProps> = ({ token, user, onUserUpdate }) =
   if (!currentUser) return <p className="text-center mt-8 text-slate-400 text-sm">Загрузка данных...</p>;
   return (
     <div className="mx-auto w-full max-w-2xl transition-all">
-      {/* Карточка профиля: flex-col на смартфонах, flex-row на мониторах */}
+      {/* Карточка профиля */}
       <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-6 shadow-sm mb-4 sm:mb-6">
         <div className="flex flex-col sm:flex-row items-center gap-4 text-center sm:text-left">
-          
-          {/* Смена аватарки (исправленная типизация) */}
           <div onClick={() => fileInputRef.current?.click()} className="group relative flex h-20 w-20 shrink-0 cursor-pointer items-center justify-center rounded-full border border-slate-200 bg-blue-50 overflow-hidden text-2xl font-black text-blue-600 transition-all hover:opacity-90 shadow-inner">
             {profileInfo?.avatar_url || currentUser?.avatar_url ? (
               <img src={API_URL + (profileInfo?.avatar_url || currentUser?.avatar_url)} alt="Аватар" className="h-full w-full object-cover" />
@@ -190,7 +207,6 @@ export const Profile: React.FC<ProfileProps> = ({ token, user, onUserUpdate }) =
           </div>
         </div>
 
-        {/* Интерактивные счетчики подписок */}
         <div className="mt-4 flex justify-center sm:justify-start gap-6 text-xs sm:text-sm text-slate-600 border-t border-slate-100 pt-3 font-medium">
           <button onClick={() => openFollowModal('following')} className="hover:text-blue-600 hover:underline focus:outline-none transition-colors active:scale-95">
             <strong className="text-slate-900 font-black mr-1">
@@ -204,7 +220,6 @@ export const Profile: React.FC<ProfileProps> = ({ token, user, onUserUpdate }) =
           </button>
         </div>
 
-        {/* Раздел Био (О себе) */}
         <div className="mt-4 border-t border-slate-100 pt-3 w-full">
           {isEditing ? (
             <form onSubmit={handleUpdateBio} className="flex flex-col gap-3">
@@ -227,7 +242,36 @@ export const Profile: React.FC<ProfileProps> = ({ token, user, onUserUpdate }) =
         </div>
       </div>
 
-      {/* Список личных постов */}
+      {/* ФОРМА СОЗДАНИЯ ПОСТА: Перенесена по ТЗ строго в Личный Профиль пользователя */}
+      <div className="mb-4 sm:mb-6 rounded-2xl border border-slate-200 bg-white p-3 sm:p-4 shadow-sm">
+        <h4 className="text-xs sm:text-sm font-black text-slate-900 mb-2 uppercase tracking-wider">Создать новую публикацию</h4>
+        <form onSubmit={handleCreatePost} className="flex flex-col gap-3">
+          <textarea value={newPostContent} onChange={(e) => setNewMessageContent(e.target.value)} placeholder="Что у вас нового? Расскажите подписчикам..." rows={3} className="w-full rounded-xl border border-slate-100 p-2 text-sm text-slate-800 focus:border-blue-500 focus:outline-none resize-none" />
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between border-t border-slate-50 pt-2 gap-2">
+            <label className="flex cursor-pointer items-center justify-center sm:justify-start gap-1.5 text-xs font-bold text-slate-500 hover:text-blue-600 select-none bg-slate-50 sm:bg-transparent py-2 sm:py-0 rounded-xl border border-slate-100 sm:border-0">
+              <span>🖼️</span> Добавить фото к посту
+              <input id="profile-file-input" type="file" accept="image/*" onChange={(e) => {
+                const selectedFile = e.target.files && e.target.files.length > 0 ? e.target.files[0] : null;
+                setNewPostImage(selectedFile);
+              }} className="hidden" />
+            </label>
+            {newPostImage && <span className="text-[10px] text-center sm:text-left text-emerald-600 font-semibold truncate max-w-xs">Выбрано: {newPostImage.name}</span>}
+            
+            {/* ИСПРАВЛЕНО: Кнопка блокируется (`disabled`) и меняет текст во время асинхронной загрузки тяжелых фото */}
+            <button 
+              type="submit" 
+              disabled={submitting || !newPostContent.trim()} 
+              className={`rounded-xl px-5 py-2 text-xs sm:text-sm font-semibold text-white shadow-sm transition-all text-center ${
+                submitting ? 'bg-slate-400 cursor-not-allowed animate-pulse' : 'bg-blue-600 hover:bg-blue-700 active:scale-95'
+              }`}
+            >
+              {submitting ? 'Загрузка контента...' : 'Опубликовать'}
+            </button>
+          </div>
+        </form>
+      </div>
+
+      {/* Список публикаций */}
       <h3 className="text-base sm:text-lg font-black tracking-tight text-slate-900 mb-3 px-1">
         Мои публикации ({posts.length})
       </h3>

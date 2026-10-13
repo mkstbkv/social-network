@@ -280,9 +280,15 @@ export const PostCard: React.FC<PostCardProps> = ({ post, token, currentUserId, 
         <p className="mt-3 text-base text-slate-700 leading-relaxed whitespace-pre-wrap">{renderTextWithMentions(currentPostContent)}</p>
       )}
 
+
       {post.image_url && (
         <div className="mt-3 overflow-hidden rounded-xl border border-slate-100 bg-slate-50">
-          <img src={API_URL + post.image_url} alt="Контент" className="max-h-96 w-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+          <img 
+            src={post.image_url.startsWith('http') ? post.image_url : (API_URL + (post.image_url.startsWith('/') ? '' : '/') + post.image_url)} 
+            alt="Контент публикации" 
+            className="max-h-96 w-full object-cover" 
+            loading="lazy"
+          />
         </div>
       )}
 
