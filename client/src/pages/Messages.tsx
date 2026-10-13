@@ -243,14 +243,16 @@ export default function Messages({ token, currentUserId, onCounterRefresh }: Mes
   );
 
   return (
-    <div className="mx-auto max-w-4xl rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden flex h-[80vh]">
-      {/* Левая панель: Собеседники */}
-      <aside className="w-80 border-r border-slate-200 bg-slate-50/50 flex flex-col shrink-0">
-        <div className="p-4 border-b border-slate-200 bg-white flex flex-col gap-2.5">
+    <div className="mx-auto w-full max-w-4xl rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden flex h-[calc(100vh-5rem)] md:h-[80vh] transition-all">
+      {/* Левая панель: Собеседники (Скрывается на мобилках, если открыт чат) */}
+      <aside className={`w-full md:w-80 border-r border-slate-200 bg-slate-50/50 flex flex-col shrink-0 transition-all ${
+        activeUser ? 'hidden md:flex' : 'flex'
+      }`}>
+        <div className="p-3 sm:p-4 border-b border-slate-200 bg-white flex flex-col gap-2">
           <div>
-            <h3 className="text-base font-black text-slate-900 tracking-tight">Мессенджер</h3>
-            <p className="text-[11px] text-slate-400 mt-0.5">
-              {searchQuery.trim() === '' ? 'Ваши active переписки' : 'Результаты глобального поиска'}
+            <h3 className="text-sm sm:text-base font-black text-slate-900 tracking-tight">Мессенджер</h3>
+            <p className="text-[10px] sm:text-[11px] text-slate-400 mt-0.5">
+              {searchQuery.trim() === '' ? 'Ваши активные переписки' : 'Результаты глобального поиска'}
             </p>
           </div>
           <div className="relative">
@@ -264,7 +266,7 @@ export default function Messages({ token, currentUserId, onCounterRefresh }: Mes
           </div>
         </div>
         
-        <div className="flex-1 overflow-y-auto p-2 flex flex-col gap-1">
+        <div className="flex-1 overflow-y-auto p-1.5 sm:p-2 flex flex-col gap-1">
           {users.length === 0 ? (
             <p className="text-center text-xs text-slate-400 italic py-6">
               {searchQuery.trim() === '' ? 'У вас пока нет активных чатов.' : 'Пользователи не найдены'}
@@ -279,22 +281,22 @@ export default function Messages({ token, currentUserId, onCounterRefresh }: Mes
                 <button
                   key={u.id}
                   onClick={() => handleSelectUser(u)}
-                  className={`w-full flex items-center justify-between p-2.5 rounded-xl transition-all text-left focus:outline-none relative ${
-                    activeUser?.id === u.id ? 'bg-blue-600 text-white shadow-md shadow-blue-100' : 'hover:bg-slate-100/80 text-slate-700'
+                  className={`w-full flex items-center justify-between p-2 sm:p-2.5 rounded-xl transition-all text-left focus:outline-none relative ${
+                    activeUser?.id === u.id ? 'bg-blue-600 text-white shadow-md' : 'hover:bg-slate-100/80 text-slate-700'
                   }`}
                 >
-                  <div className="flex items-center gap-3 overflow-hidden">
-                    <div className="relative h-9 w-9 rounded-full overflow-hidden shrink-0 border flex items-center justify-center font-bold text-xs bg-slate-100 border-slate-200 text-slate-500">
+                  <div className="flex items-center gap-2.5 sm:gap-3 overflow-hidden">
+                    <div className="relative h-8 w-8 sm:h-9 sm:w-9 rounded-full overflow-hidden shrink-0 border flex items-center justify-center font-bold text-xs bg-slate-100 border-slate-200 text-slate-500">
                       {u.avatar_url ? <img src={API_URL + u.avatar_url} className="h-full w-full object-cover" /> : u.username.substring(0, 2).toUpperCase()}
                       {isOnline && <span className="absolute bottom-0 right-0 block h-2.5 w-2.5 rounded-full bg-emerald-500 border-2 border-white"></span>}
                     </div>
                     <div className="flex flex-col min-w-0">
-                      <span className="text-sm font-bold truncate">@{u.username}</span>
-                      {isTypingNow && <span className={`text-[10px] font-bold animate-pulse ${activeUser?.id === u.id ? 'text-blue-200' : 'text-amber-500'}`}>Печатает...</span>}
+                      <span className="text-xs sm:text-sm font-bold truncate">@{u.username}</span>
+                      {isTypingNow && <span className={`text-[9px] sm:text-[10px] font-bold animate-pulse ${activeUser?.id === u.id ? 'text-blue-200' : 'text-amber-500'}`}>Печатает...</span>}
                     </div>
                   </div>
                   {count > 0 && activeUser?.id !== u.id && (
-                    <span className="h-5 min-w-5 px-1.5 flex items-center justify-center rounded-full bg-emerald-500 text-[10px] font-black text-white shadow-sm shrink-0">
+                    <span className="h-4.5 min-w-4.5 sm:h-5 sm:min-w-5 px-1.5 flex items-center justify-center rounded-full bg-emerald-500 text-[9px] sm:text-[10px] font-black text-white shadow-sm shrink-0">
                       {count}
                     </span>
                   )}
@@ -304,30 +306,40 @@ export default function Messages({ token, currentUserId, onCounterRefresh }: Mes
           )}
         </div>
       </aside>
-
-      {/* Правая панель: Чат */}
-      <section className="flex-1 flex flex-col bg-white">
+      {/* Правая панель: Чат (Занимает весь экран на мобилках, если чат выбран) */}
+      <section className={`flex-1 flex flex-col bg-white transition-all ${
+        activeUser ? 'flex' : 'hidden md:flex'
+      }`}>
         {activeUser ? (
           <>
-            <div className="p-4 border-b border-slate-200 flex items-center justify-between bg-slate-50/20">
-              <div className="flex items-center gap-3">
-                <div className="relative h-9 w-9 rounded-full overflow-hidden shrink-0 border border-slate-200 bg-slate-100 flex items-center justify-center font-bold text-slate-500 text-xs">
+            <div className="p-3 sm:p-4 border-b border-slate-200 flex items-center justify-between bg-slate-50/20">
+              <div className="flex items-center gap-2 sm:gap-3">
+                {/* МОБИЛЬНАЯ КНОПКА "НАЗАД" */}
+                <button 
+                  onClick={handleCloseChat} 
+                  className="flex md:hidden items-center justify-center p-1.5 rounded-xl border border-slate-200 bg-white shadow-sm hover:bg-slate-50 text-slate-600 mr-1 text-xs font-bold focus:outline-none"
+                >
+                  ← Назад
+                </button>
+
+                <div className="relative h-8 w-8 sm:h-9 sm:w-9 rounded-full overflow-hidden shrink-0 border border-slate-200 bg-slate-100 flex items-center justify-center font-bold text-slate-500 text-xs">
                   {activeUser.avatar_url ? <img src={API_URL + activeUser.avatar_url} className="h-full w-full object-cover" /> : activeUser.username.substring(0, 2).toUpperCase()}
                 </div>
                 <div className="flex flex-col">
-                  <span className="text-sm font-black text-slate-900">@{activeUser.username}</span>
-                  <span className={`text-[10px] font-bold ${onlineUserIds.includes(activeUser.id.toString()) ? 'text-emerald-500' : 'text-slate-400'}`}>
+                  <span className="text-xs sm:text-sm font-black text-slate-900">@{activeUser.username}</span>
+                  <span className={`text-[9px] sm:text-[10px] font-bold ${onlineUserIds.includes(activeUser.id.toString()) ? 'text-emerald-500' : 'text-slate-400'}`}>
                     {onlineUserIds.includes(activeUser.id.toString()) ? '● в сети' : 'был(а) недавно'}
                   </span>
                 </div>
               </div>
 
-              <button onClick={handleCloseChat} className="rounded-xl p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-all font-bold text-sm focus:outline-none">
+              {/* Кнопка "Закрыть" для десктопов */}
+              <button onClick={handleCloseChat} className="hidden md:block rounded-xl p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-all font-bold text-sm focus:outline-none">
                 ✕ Закрыть
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-3 bg-slate-50/10">
+            <div className="flex-1 overflow-y-auto p-3 sm:p-4 flex flex-col gap-3 bg-slate-50/10">
               {messages.map((msg, index) => {
                 const isMe = msg.sender_id.toString() === currentUserId.toString();
                 const isFirstUnreadLine = index === firstUnreadIncomingIndex;
@@ -335,24 +347,24 @@ export default function Messages({ token, currentUserId, onCounterRefresh }: Mes
                 return (
                   <React.Fragment key={msg.id}>
                     {isFirstUnreadLine && (
-                      <div ref={firstUnreadRef} className="w-full flex items-center my-3 select-none">
+                      <div ref={firstUnreadRef} className="w-full flex items-center my-2 sm:my-3 select-none">
                         <div className="flex-1 h-[1px] bg-emerald-200"></div>
-                        <span className="mx-3 text-[10px] font-extrabold uppercase tracking-wider text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-md border border-emerald-100">
+                        <span className="mx-2 sm:mx-3 text-[9px] sm:text-[10px] font-extrabold uppercase tracking-wider text-emerald-600 bg-emerald-50 px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-md border border-emerald-100">
                           Непрочитанные сообщения
                         </span>
                         <div className="flex-1 h-[1px] bg-emerald-200"></div>
                       </div>
                     )}
 
-                    <div className={`flex flex-col max-w-[75%] ${isMe ? 'ml-auto items-end' : 'mr-auto items-start'}`}>
-                      <div className={`px-4 py-2.5 rounded-2xl text-sm leading-relaxed shadow-sm relative ${
+                    <div className={`flex flex-col max-w-[85%] sm:max-w-[75%] ${isMe ? 'ml-auto items-end' : 'mr-auto items-start'}`}>
+                      <div className={`px-3 py-2 sm:px-4 sm:py-2.5 rounded-2xl text-xs sm:text-sm leading-relaxed shadow-sm relative ${
                         isMe ? 'bg-blue-600 text-white rounded-br-none' : 'bg-slate-100 text-slate-800 rounded-bl-none border border-slate-200/50'
                       }`}>
                         {msg.content}
                       </div>
                       
                       <div className="flex items-center gap-1.5 mt-1 px-1 select-none">
-                        <span className="text-[9px] text-slate-400">
+                        <span className="text-[8px] sm:text-[9px] text-slate-400">
                           {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </span>
                         {isMe && (
@@ -366,22 +378,22 @@ export default function Messages({ token, currentUserId, onCounterRefresh }: Mes
                 );
               })}
               {typingUsers.includes(activeUser.id) && (
-                <div className="text-[11px] text-slate-400 font-bold italic animate-pulse mt-1 px-1">
+                <div className="text-[10px] sm:text-[11px] text-slate-400 font-bold italic animate-pulse mt-1 px-1">
                   @{activeUser.username} печатает...
                 </div>
               )}
               <div ref={messagesEndRef} />
             </div>
 
-            <form onSubmit={handleSendMessage} className="p-4 border-t border-slate-200 bg-white flex gap-2 relative">
+            <form onSubmit={handleSendMessage} className="p-2 sm:p-4 border-t border-slate-200 bg-white flex gap-1.5 sm:gap-2 relative">
               <div className="relative" ref={emojiPickerRef}>
-                <button type="button" onClick={() => setShowEmojiPicker(!showEmojiPicker)} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-base hover:bg-slate-100 transition-colors focus:outline-none">
+                <button type="button" onClick={() => setShowEmojiPicker(!showEmojiPicker)} className="rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-2 sm:px-3 sm:py-2.5 text-sm sm:text-base hover:bg-slate-100 transition-colors focus:outline-none">
                   😀
                 </button>
                 {showEmojiPicker && (
-                  <div className="absolute bottom-full left-0 z-50 mb-2 grid grid-cols-4 gap-1 rounded-xl border border-slate-100 bg-white p-2 shadow-2xl w-40">
+                  <div className="absolute bottom-full left-0 z-50 mb-2 grid grid-cols-4 gap-1 rounded-xl border border-slate-100 bg-white p-1.5 shadow-2xl w-36 sm:w-40">
                     {popularEmojis.map(emoji => (
-                      <button key={emoji} type="button" onClick={() => handleAddEmoji(emoji)} className="p-1.5 hover:bg-slate-50 rounded-lg text-lg text-center transition-transform active:scale-125 focus:outline-none">
+                      <button key={emoji} type="button" onClick={() => handleAddEmoji(emoji)} className="p-1 sm:p-1.5 hover:bg-slate-50 rounded-lg text-base sm:text-lg text-center active:scale-125 focus:outline-none">
                         {emoji}
                       </button>
                     ))}
@@ -389,15 +401,15 @@ export default function Messages({ token, currentUserId, onCounterRefresh }: Mes
                 )}
               </div>
 
-              <input type="text" value={newMessage} onChange={(e) => handleInputChange(e.target.value)} placeholder="Напишите личное сообщение..." className="flex-1 rounded-xl border border-slate-200 px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none" autoComplete="off" />
-              <button type="submit" className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition-colors shadow-sm active:scale-95">Отправить</button>
+              <input type="text" value={newMessage} onChange={(e) => handleInputChange(e.target.value)} placeholder="Напишите сообщение..." className="flex-1 rounded-xl border border-slate-200 px-3 py-2 text-xs sm:text-sm focus:border-blue-500 focus:outline-none" autoComplete="off" />
+              <button type="submit" className="rounded-xl bg-blue-600 px-4 py-2 sm:px-5 sm:py-2.5 text-xs sm:text-sm font-semibold text-white hover:bg-blue-700 transition-colors shadow-sm active:scale-95">Отправить</button>
             </form>
           </>
         ) : (
-          <div className="flex-1 flex flex-col items-center justify-center p-8 text-slate-400 select-none">
-            <span className="text-4xl mb-2">💬</span>
-            <p className="text-sm font-bold text-slate-500">Чат не выбран</p>
-            <p className="text-xs text-slate-400 mt-1 text-center max-w-xs">Выберите любой активный диалог слева или воспользуйтесь поиском, чтобы найти нового собеседника</p>
+          <div className="flex-1 flex flex-col items-center justify-center p-8 text-slate-400 select-none text-center">
+            <span className="text-3xl sm:text-4xl mb-2">💬</span>
+            <p className="text-xs sm:text-sm font-bold text-slate-500">Чат не выбран</p>
+            <p className="text-[11px] sm:text-xs text-slate-400 mt-1 max-w-xs">Выберите любой активный диалог слева или воспользуйтесь поиском, чтобы найти нового собеседника</p>
           </div>
         )}
       </section>
